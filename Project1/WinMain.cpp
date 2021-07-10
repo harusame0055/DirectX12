@@ -251,8 +251,55 @@ namespace {
 			command_queue->SetName(L"command_queue");
 		}
 
+		//スワップチェイン作成
+		{
+			//スワップチェインの設定用構造体
+			DXGI_SWAP_CHAIN_DESC1 desc{};
+			desc.BufferCount = backbuffer_size;
+			desc.Width = kClienWidth;
+			desc.Height = kClienHeight;
+			desc.Format = backbuffer_format;
+			desc.BufferUsage =
+				DXGI_USAGE_RENDER_TARGET_OUTPUT;
+			desc.Scaling = DXGI_SCALING_STRETCH;
+			desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+			desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+			desc.Flags = 0;
+			desc.SampleDesc.Count = 1;
+			desc.SampleDesc.Quality = 0;
+
+			//スワップチェインオブジェクト作成
+			ComPtr<IDXGISwapChain1> sc;
+			hr = dxgi_factory->CreateSwapChainForHwnd(
+				command_queue.Get(),
+				hwnd,
+				&desc,
+				nullptr,
+				nullptr,
+				sc.GetAddressOf());
+			if (FAILED(hr))
+			{
+				return false;
+			}
+
+			//IDXGISwapChain1::As関数からIDXGISwapChain4インターフェースを取得
+			
+			hr = sc.As(&swap_chain);
+			if (FAILED(hr))
+			{
+				return false;
+			}
+		}
+
+		//レンダーターゲット用のデスクリプタヒープ作成
+		{
+			//レンダーターゲット用デスクリプタヒープの設定構造体
+			D3D12_DESCRIPTOR_HEAP_DESC desc{};
+		}
+
 		return true;
 	}
+
 
 	/// @brief  D3Dオブジェクト解放処理
 	void FinalizeD3D()
