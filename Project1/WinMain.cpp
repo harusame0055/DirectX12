@@ -77,9 +77,9 @@ namespace {
 
 
 	//レンダーターゲットの設定(Descriptor)をVRAMに保存するため必要
-	ComPtr<ID3D12DescriptorHeap> rtv_descriptr_heap = nullptr;
+	ComPtr<ID3D12DescriptorHeap> rtv_descriptor_heap = nullptr;
 	//上のレンダーターゲットデスクリプタの1個当たりのサイズを覚える
-	UINT rtv_descriptr_size = 0;
+	UINT rtv_descriptor_size = 0;
 
 	//GPU処理が終わっているかを確認するために必要なフェンスオブジェクト
 	ComPtr<ID3D12Fence> d3d12_fence = nullptr;
@@ -102,8 +102,19 @@ namespace {
 	//現在のバックバッファのインデックス
 	int backbuffer_index = 0;
 
+	/*-------------------------------------------*/
+	/*  プロトタイプ宣言                                   */
+	/*-------------------------------------------*/
+	LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+	bool InitializeD3D(HWND hwnd);
+	void FinalizeD3D();
+	void WaitForGpu();
+	void Render();
+	void WaitForPreviousFrame();
 
-
+	/*-------------------------------------------*/
+	/*  関数定義                                                 */
+	/*-------------------------------------------*/
 	/// @brief  ウィンドウプロシージャ
 	/// @param hwnd  ウィンドウハンドル
 	/// @param message メッセージの種類
@@ -283,7 +294,7 @@ namespace {
 			}
 
 			//IDXGISwapChain1::As関数からIDXGISwapChain4インターフェースを取得
-			
+
 			hr = sc.As(&swap_chain);
 			if (FAILED(hr))
 			{
@@ -295,6 +306,127 @@ namespace {
 		{
 			//レンダーターゲット用デスクリプタヒープの設定構造体
 			D3D12_DESCRIPTOR_HEAP_DESC desc{};
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+			desc.NumDescriptors = backbuffer_size;
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+			//descの内容でメモリを動的に確保に確保してもらう
+			hr = d3d12_device->CreateDescriptorHeap(
+				&desc,
+				IID_PPV_ARGS(rtv_descriptor_heap.ReleaseAndGetAddressOf()));
+			if (FAILED(hr))
+			{
+				return false;
+			}
+			rtv_descriptor_heap->SetName(L"rtv_descriptor_heap");
+
+			//デスクリプタヒープのメモリサイズを取得
+			rtv_descriptor_size = d3d12_device->GetDescriptorHandleIncrementSize(
+				D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		}
+
+		//レンダーターゲットビューを作成
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle =
+			rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+
+		//バックバッファの数だけレンダーターゲットを作成
+		for (int i = 0; i < backbuffer_size; i++)
+		{
+			//スワップチェインからバックバッファを取得してくる
+			hr = swap_chain->GetBuffer(i, IID_PPV_ARGS(render_targets[i].GetAddressOf()));
+			if (FAILED(hr))
+			{
+				return false;
+			}
+			//render_targetsに名前を設定するための文字列変数
+			std::wstring name{ L"render_targets[" + std::to_wstring(i) + L"]" };
+			render_targets[i]->SetName(name.c_str());
+
+			//レンダーターゲットビューの設定用構造体
+			D3D12_RENDER_TARGET_VIEW_DESC desc = {};
+			desc.Format = backbuffer_format;
+			desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+			//RTについての情報を書き込んでRTビュー作成
+			d3d12_device->CreateRenderTargetView(
+				render_targets[i].Get(),
+				&desc,
+				rtv_handle);
+			rtv_descriptor_heap->SetName(L"rtv_descriptor_heap");
+
+			//次のループに備えて書き込み先のメモリ位置からずらす
+			rtv_handle.ptr = rtv_descriptor_size;
+		}
+		//初回描画に備えて、現在のバックバッファのインデスク取得
+		backbuffer_index = swap_chain->GetCurrentBackBufferIndex();
+
+		//コマンドアロケータ作成
+		{
+			//使用するバックバッファと同じ数だけ作成してみる
+			for (int i = 0; i < backbuffer_size; i++)
+			{
+				hr = d3d12_device->CreateCommandAllocator(
+					D3D12_COMMAND_LIST_TYPE_DIRECT,
+					IID_PPV_ARGS(command_allocators[i].ReleaseAndGetAddressOf()));
+				if (FAILED(hr))
+				{
+					return false;
+				}
+
+				std::wstring name{ L"command_allocators[" + std::to_wstring(i) + L"]" };
+				command_allocators[i]->SetName(name.c_str());
+			}
+		}
+		//コマンドリスト作成
+		{
+			hr = d3d12_device->CreateCommandList(
+				0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+				command_allocators[backbuffer_index].Get(),
+				nullptr,
+				IID_PPV_ARGS(graphics_commandlist.ReleaseAndGetAddressOf()));
+			if (FAILED(hr))
+			{
+				return false;
+			}
+			graphics_commandlist->SetName(L"graphics_commandlist");
+
+			graphics_commandlist->Close();
+		}
+
+		//フェンスオブジェクト作成
+		for (int i = 0; i < backbuffer_size; i++)
+		{
+			fence_values[i] = 0;	//フェンス値を０クリア
+		}
+
+		//フェンス作成　
+		hr = d3d12_device->CreateFence(
+			fence_values[backbuffer_index],
+			D3D12_FENCE_FLAG_NONE,
+			IID_PPV_ARGS(d3d12_fence.ReleaseAndGetAddressOf()));
+		if (FAILED(hr))
+		{
+			return false;
+		}
+		d3d12_fence->SetName(L"d3d12_fence");
+
+		//次回同期のためのフェンス値を設定
+		++fence_values[backbuffer_index];
+
+		//フェンスの状態を確認するインベントを作る
+		fence_event.Attach(
+			//CreateEventEx関数すると戻り値でイベントのハンドルが貰える
+			CreateEventEx(
+				nullptr,
+				nullptr,
+				0,
+				EVENT_MODIFY_STATE | SYNCHRONIZE)
+		);
+
+		//イベントが正しく設定できたことをチェック
+		if (!fence_event.IsValid())
+		{
+			return false;
 		}
 
 		return true;
@@ -304,7 +436,150 @@ namespace {
 	/// @brief  D3Dオブジェクト解放処理
 	void FinalizeD3D()
 	{
+		WaitForGpu();
+	}
+	/// @brief GPUの処理完了を確認する
+	void WaitForGpu()
+	{
+		//現在のフェンス値をローカルにコピー
+		const UINT64 current_value = fence_values[backbuffer_index];
 
+		//キュー完了時に更新されるフェンスとフェンス値をセット
+		if (FAILED(command_queue->Signal(d3d12_fence.Get(), current_value)))
+		{
+			return;
+		}
+		//イベント飛んでくるまでこのプログラムを待機状態にする
+		WaitForSingleObjectEx(fence_event.Get(), INFINITE, FALSE);
+
+		//次回のフェンス用にフェンス値更新
+		fence_values[backbuffer_index] = current_value + 1;
+	}
+
+	/// @brief 描画処理
+	void Render()
+	{
+		//アロケータとコマンドリストをリセット
+		//前フレームで使ったデータを忘れて、メモリを再利用可能にする
+		command_allocators[backbuffer_index]->Reset();
+		graphics_commandlist->Reset(
+			command_allocators[backbuffer_index].Get(),
+			nullptr);
+
+		//レンダーターゲットへのリソースバリア
+		{
+			//バリア用データ作成
+			D3D12_RESOURCE_BARRIER barrier{};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.Subresource =
+				D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+			//状態をチェックするリソース
+			barrier.Transition.pResource
+				= render_targets[backbuffer_index].Get();
+
+			//繊維前(Before)の状態　
+			barrier.Transition.StateBefore
+				= D3D12_RESOURCE_STATE_PRESENT;
+
+			//繊維後(After)の状態
+			barrier.Transition.StateAfter
+				= D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+			//リソースバリアコマンド作成
+			graphics_commandlist->ResourceBarrier(1, &barrier);
+		}
+
+		//レンダーターゲットのディスクリプタハンドルを取得
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv
+			= rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+		rtv.ptr += static_cast<SIZE_T> (static_cast<INT64>(backbuffer_index) *
+			static_cast<INT64>
+			(rtv_descriptor_size));
+
+		//描画対象のレンダーターゲットを設定するコマンド
+		graphics_commandlist->OMSetRenderTargets(
+			1,
+			&rtv,
+			FALSE,
+			nullptr);
+
+		//塗りつぶす色. float4要素でRGBAを指定
+		float clear_color[4]{ 0,0.5f,1.0f,1.0f };
+
+		//指定したレンダーターゲットを、特定の色で塗りつぶし
+		graphics_commandlist->ClearRenderTargetView(
+			rtv,
+			clear_color,
+			0,
+			nullptr);
+
+		/*-----------------------------------------*/
+		/*  ゲームの描画処理開始                        */
+		/*-----------------------------------------*/
+
+
+		/*-----------------------------------------*/
+		/*  ゲームの描画処理終了                        */
+		/*-----------------------------------------*/
+
+		//レンダーターゲットをバックバッファとして使えるようにする状態遷移
+		{
+			D3D12_RESOURCE_BARRIER barrier{};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.Subresource =
+				D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			barrier.Transition.pResource
+				= render_targets[backbuffer_index].Get();
+			barrier.Transition.StateBefore
+				= D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+			barrier.Transition.StateAfter
+				= D3D12_RESOURCE_STATE_PRESENT;
+
+			graphics_commandlist->ResourceBarrier(1, &barrier);
+		}
+
+		//コマンド記録完了
+		graphics_commandlist->Close();
+
+		//キューはID3D12CommandList * 配列を受け取る , 今回は要素数1の配列として渡す
+		ID3D12CommandList* command_lists[]{ graphics_commandlist.Get() };
+
+		//キューにあるコマンド実行命令
+		command_queue->ExecuteCommandLists(
+			_countof(command_lists),
+			command_lists);
+	
+	//バックバッファをフロントバッファに入れ替え指示
+		swap_chain->Present(1, 0);
+		
+		WaitForPreviousFrame();
+	}
+
+	/// @brief 描画垂直同期処理
+	void WaitForPreviousFrame()
+	{
+		//キューにシグナルを送る
+		const UINT64 current_value = fence_values[backbuffer_index];
+		command_queue->Signal(d3d12_fence.Get(), current_value);
+
+		//次フレームのバックバッファインデックスをもらう
+		backbuffer_index = swap_chain->GetCurrentBackBufferIndex();
+
+		//GetCompletedValueでフェンスの現在地を確認する.
+		if (d3d12_fence->GetCompletedValue() < current_value)
+		{
+			//描画が終わってないので同期
+			d3d12_fence->SetEventOnCompletion(current_value, fence_event.Get());
+			WaitForSingleObjectEx(fence_event.Get(), INFINITE, FALSE);
+		}
+
+		//次のフレームのためにフェンス値更新
+		fence_values[backbuffer_index] = current_value + 1;
+	
 	}
 }// namespace
 
@@ -407,10 +682,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 		else
 		{
 			//ここにゲームの処理を書く
+			Render();
 		}
 	}
 
 	FinalizeD3D();
+	CoUninitialize();
 
 	return 0;
 }
