@@ -76,10 +76,17 @@ namespace {
 	ComPtr<ID3D12CommandQueue> command_queue = nullptr;
 
 
+<<<<<<< HEAD
 	//ãƒ¬ãƒ³ãƒ€ãƒ¼ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã®è¨­å®š(Descriptor)ã‚’VRAMã«ä¿å­˜ã™ã‚‹ãŸã‚å¿…è¦
 	ComPtr<ID3D12DescriptorHeap> rtv_descriptor_heap = nullptr;
 	//ä¸Šã®ãƒ¬ãƒ³ãƒ€ãƒ¼ã‚¿ãƒ¼ã‚²ãƒƒãƒˆãƒ‡ã‚¹ã‚¯ãƒªãƒ—ã‚¿ã®1å€‹å½“ãŸã‚Šã®ã‚µã‚¤ã‚ºã‚’è¦šãˆã‚‹
 	UINT rtv_descriptor_size = 0;
+=======
+	//ƒŒƒ“ƒ_[ƒ^[ƒQƒbƒg‚Ìİ’è(Descriptor)‚ğVRAM‚É•Û‘¶‚·‚é‚½‚ß•K—v
+	ComPtr<ID3D12DescriptorHeap> rtv_descriptr_heap = nullptr;
+	//ã‚ÌƒŒƒ“ƒ_[ƒ^[ƒQƒbƒgƒfƒXƒNƒŠƒvƒ^‚Ì1ŒÂ“–‚½‚è‚ÌƒTƒCƒY‚ğŠo‚¦‚é
+	UINT rtv_descriptr_size = 0;
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 
 	//GPUå‡¦ç†ãŒçµ‚ã‚ã£ã¦ã„ã‚‹ã‹ã‚’ç¢ºèªã™ã‚‹ãŸã‚ã«å¿…è¦ãªãƒ•ã‚§ãƒ³ã‚¹ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
 	ComPtr<ID3D12Fence> d3d12_fence = nullptr;
@@ -102,6 +109,7 @@ namespace {
 	//ç¾åœ¨ã®ãƒãƒƒã‚¯ãƒãƒƒãƒ•ã‚¡ã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹
 	int backbuffer_index = 0;
 
+<<<<<<< HEAD
 	/*-------------------------------------------*/
 	/*  ãƒ—ãƒ­ãƒˆã‚¿ã‚¤ãƒ—å®£è¨€                                   */
 	/*-------------------------------------------*/
@@ -122,6 +130,16 @@ namespace {
 	/// @param wParam ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿
 	/// @param lParam ã€€ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿
 	/// @return ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®æˆ»ã‚Šå€¤
+=======
+
+
+	/// @brief  ƒEƒBƒ“ƒhƒEƒvƒƒV[ƒWƒƒ
+	/// @param hwnd  ƒEƒBƒ“ƒhƒEƒnƒ“ƒhƒ‹
+	/// @param message ƒƒbƒZ[ƒW‚Ìí—Ş
+	/// @param wParam ƒƒbƒZ[ƒW‚Ìƒpƒ‰ƒ[ƒ^
+	/// @param lParam @ƒƒbƒZ[ƒW‚Ìƒpƒ‰ƒ[ƒ^
+	/// @return ƒƒbƒZ[ƒW‚Ì–ß‚è’l
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 	LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		switch (message)
@@ -293,7 +311,12 @@ namespace {
 				return false;
 			}
 
+<<<<<<< HEAD
 			//IDXGISwapChain1::Asé–¢æ•°ã‹ã‚‰IDXGISwapChain4ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹ã‚’å–å¾—
+=======
+			//IDXGISwapChain1::AsŠÖ”‚©‚çIDXGISwapChain4ƒCƒ“ƒ^[ƒtƒF[ƒX‚ğæ“¾
+			
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 			hr = sc.As(&swap_chain);
 			if (FAILED(hr))
 			{
@@ -305,6 +328,7 @@ namespace {
 		{
 			//ãƒ¬ãƒ³ãƒ€ãƒ¼ã‚¿ãƒ¼ã‚²ãƒƒãƒˆç”¨ãƒ‡ã‚¹ã‚¯ãƒªãƒ—ã‚¿ãƒ’ãƒ¼ãƒ—ã®è¨­å®šæ§‹é€ ä½“
 			D3D12_DESCRIPTOR_HEAP_DESC desc{};
+<<<<<<< HEAD
 			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 			desc.NumDescriptors = backbuffer_size;
 			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -434,6 +458,8 @@ namespace {
 			{
 				return false;
 			}
+=======
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 		}
 		return true;
 	}
@@ -441,6 +467,7 @@ namespace {
 	/// @brief  D3Dã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆè§£æ”¾å‡¦ç†
 	void FinalizeD3D()
 	{
+<<<<<<< HEAD
 		WaitForGpu();
 	}
 
@@ -604,6 +631,9 @@ namespace {
 
 		//æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã®ãŸã‚ã«ãƒ•ã‚§ãƒ³ã‚¹å€¤æ›´æ–°
 		fence_values[backbuffer_index] = current_value + 1;
+=======
+
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 	}
 }// namespace
 
@@ -705,13 +735,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 		}
 		else
 		{
+<<<<<<< HEAD
 			//ã“ã“ã«ã‚²ãƒ¼ãƒ ã®å‡¦ç†ã‚’æ›¸ã
 			Render();
+=======
+			//‚±‚±‚ÉƒQ[ƒ€‚Ìˆ—‚ğ‘‚­
+>>>>>>> 013d0d23e9813dd8d15917b9c871245ea105a894
 		}
 	}
 
 	FinalizeD3D();
-	CoUninitialize();
 
 	return 0;
 }
