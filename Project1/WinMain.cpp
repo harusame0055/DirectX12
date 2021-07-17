@@ -22,12 +22,17 @@
 /*  C++　標準ライブラリ                               */
 /*----------------------------------------------*/
 #include<string>
+#include<filesystem>
+#include<fstream>
+#include<vector>
 
 /*----------------------------------------------*/
 /*  DirectX関連ヘッダ                                     */
 /*----------------------------------------------*/
 #include<d3d12.h>
 #include<dxgi1_6.h>
+#include<DirectXMath.h>
+#include<dxcapi.h>
 
 #ifdef _DEBUG
 #include <dxgidebug.h>
@@ -39,6 +44,8 @@
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"dxguid.lib")
+#pragma comment(lib,"dxcompiler.lib")
+
 
 //無名名前空間
 namespace {
@@ -50,28 +57,65 @@ namespace {
 	constexpr wchar_t kWindowTitle[]{ L"DirectX12 Application" };
 
 	//デフォルトのクライアント領域
-	constexpr int kClienWidth = 800;
-	constexpr int kClienHeight = 600;
+	constexpr int clienWidth = 800;
+	constexpr int clienHeight = 600;
 
 	//ComPtrのnamespaceが長いのでエイリアス(別名)を設定
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-	/*---------------------------------------------------------------------*/
-	/*  D３Dオブジェクト関連                                                                 */
-	/*---------------------------------------------------------------------*/
-	/*D3D12デバイス                                                                               */
+	//usingディレクティブ，　名前空間　DirectXを省略可能にする
+	using namespace DirectX;
+
+	/*-------------------------------------------*/
+	/*  頂点データ                                             */
+	/*-------------------------------------------*/
+	//頂点データ構造体
+	struct Vertex
+	{
+		DirectX::XMFLOAT3 position;		//3D座標, float xyz 3要素
+		DirectX::XMFLOAT4 color;			//頂点カラー, float rgba 4要素
+	};
+
+	//Vertex構造体の " 意味 " をシャーダに伝えるデータ配列
+	constexpr D3D12_INPUT_ELEMENT_DESC vertexLayouts[]
+	{
+		{
+			//DirectX::XMFLOAT3 position; の記述
+			"POSITION",					//POSITION＝座標
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,		//32bit float型 3要素
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0},
+
+		{
+			//DirectX::XMFLOAT4 color;　の記述
+			"COLOR",						//COLOR＝頂点カラー
+			0,DXGI_FORMAT_R32G32B32A32_FLOAT,	//32bit float型 4要素
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0},
+	};
+
+
+	/*------------------------------------------------*/
+	/*  D３Dオブジェクト関連                                 */
+	/*------------------------------------------------*/
+	/*D3D12デバイス                                               */
 	ComPtr<ID3D12Device> d3d12_device = nullptr;
 	//WARPアダプタ仕様フラグ(デバッグビルドのみ有効)
-	constexpr bool kUseWarpAdapter = true;
+	constexpr bool useWarpAdapter = true;
 	//バックバッファの最大値
-	constexpr int kMaxBackBufferSize = 3;
+	constexpr int maxBackBufferSize = 3;
 
 
 	//コマンドリスト,GPUに対して処理手順をリストとして持つ
 	ComPtr<ID3D12GraphicsCommandList> graphics_commandlist = nullptr;
 	//コマンドアロケータ, コマンドを作成するためのメモリを確保するオブジェクト
-	ComPtr<ID3D12CommandAllocator> command_allocators[kMaxBackBufferSize];
+	ComPtr<ID3D12CommandAllocator> command_allocators[maxBackBufferSize];
 	//コマンドキュー，1つ以上のコマンドリストをキューに積んでGPUに送る
 	ComPtr<ID3D12CommandQueue> command_queue = nullptr;
 
@@ -84,7 +128,7 @@ namespace {
 	//GPU処理が終わっているかを確認するために必要なフェンスオブジェクト
 	ComPtr<ID3D12Fence> d3d12_fence = nullptr;
 	//フェンスに書き込む値,バックバッファと同じ数を用意しておく
-	UINT64 fence_values[kMaxBackBufferSize]{};
+	UINT64 fence_values[maxBackBufferSize]{};
 	//CPU. GPUの同期処理を楽にとるために使う
 	Microsoft::WRL::Wrappers::Event fence_event;
 
@@ -94,7 +138,7 @@ namespace {
 	//スワップチェインオブジェクト. 描画結果を画面へ出力してくれる
 	ComPtr<IDXGISwapChain4> swap_chain = nullptr;
 	//バックバッファとして使うレンダーターゲット配列
-	ComPtr<ID3D12Resource> render_targets[kMaxBackBufferSize]{};
+	ComPtr<ID3D12Resource> render_targets[maxBackBufferSize]{};
 	//バックバッファテクスチャのフォーマット. 1pxをRGBA各8bitずつの32bit
 	DXGI_FORMAT backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	//作成するバックバッファ数
@@ -102,6 +146,17 @@ namespace {
 	//現在のバックバッファのインデックス
 	int backbuffer_index = 0;
 
+	/*-------------------------------------------*/
+	/*  描画用データ                                          */
+	/*-------------------------------------------*/
+	//頂点配列
+	Vertex vertices[]
+	{
+		//1頂点{ XMFLOAT3 {座標} ，XMFLOAT4 {色} }，
+		{XMFLOAT3{-0.5f,-0.5f,0.5f},XMFLOAT4{1.0f,0.0f,0.0f,1.0f}},
+		{XMFLOAT3{0.0f,0.5f,0.5f},XMFLOAT4{0.0f,1.0f,0.0f,1.0f}},
+		{XMFLOAT3{0.5f,-0.5f,0.5f},XMFLOAT4{0.0f,0.0f,1.0f,1.0f}},
+	};
 	/*-------------------------------------------*/
 	/*  プロトタイプ宣言                                   */
 	/*-------------------------------------------*/
@@ -112,6 +167,16 @@ namespace {
 	void WaitForGpu();
 	void Render();
 	void WaitForPreviousFrame();
+	HRESULT CompileShaderFromFile(
+		const std::wstring& filename,
+		const std::wstring& profile,
+		ComPtr<ID3DBlob>& shader_blob,
+		ComPtr<ID3DBlob>& error_blob);
+	bool CreateShaderBlob(
+		const std::wstring& filename,
+		const std::wstring& profile,
+		ComPtr<ID3DBlob>& shader_blob
+	);
 
 	/*-------------------------------------------*/
 	/*  関数定義                                                 */
@@ -213,9 +278,9 @@ namespace {
 			}
 		}
 #if _DEBUG
-		//適切なハードウェアアダプタがなくて、kUseWarpAdapterがtrueなら
+		//適切なハードウェアアダプタがなくて、useWarpAdapterがtrueなら
 		//WARPアダプタを取得(WARP = Windows Advanced Rasterization + Platform)
-		if (adapter == nullptr && kUseWarpAdapter)
+		if (adapter == nullptr && useWarpAdapter)
 		{
 			//WARPはGPU機能の一部をCPU側で実行してくれるアダプタ
 			//純粋なソフトウェアより随分早いが本番のゲームで使うのは無理
@@ -267,8 +332,8 @@ namespace {
 		{
 			//スワップチェインの設定用構造体
 			DXGI_SWAP_CHAIN_DESC1 desc{}; desc.BufferCount = backbuffer_size; // バッファの数
-			desc.Width = kClienWidth; // バックバッファの幅
-			desc.Height = kClienHeight; // バックバッファの⾼さ
+			desc.Width = clienWidth; // バックバッファの幅
+			desc.Height = clienHeight; // バックバッファの⾼さ
 			desc.Format = backbuffer_format; // バックバッファフォーマット
 			desc.BufferUsage =
 				+DXGI_USAGE_RENDER_TARGET_OUTPUT; // レンダーターゲットの場合はこれ
@@ -605,6 +670,138 @@ namespace {
 		//次のフレームのためにフェンス値更新
 		fence_values[backbuffer_index] = current_value + 1;
 	}
+
+	/// @brief HLSLをコンパイルして実行可能なオブジェクトを作る
+	/// @param filename コンパイルするHLSLファイルパス
+	/// @param profile シェーダーポロファイル（シェーダーの種類）
+	/// @param shader_blob コンパイル後のHLSLデータを受け取る
+	/// @param error_blob 失敗時はこっちにエラー情報オブジェクトを入れる
+	/// @return 処理成功ならS_OK / そうでなければS_FALSE
+	HRESULT CompileShaderFromFile(
+		const std::wstring& filename,
+		const std::wstring& profile,
+		ComPtr<ID3DBlob>& shader_blob,
+		ComPtr<ID3DBlob>& error_blob)
+	{
+		HRESULT hr = S_FALSE;
+
+		//ファイル名からパスを作る
+		std::filesystem::path file_path(filename);
+
+		//ファイルを読み取るオブジェクト
+		std::ifstream in_file(file_path);
+
+		//ファイルがなければ失敗
+		if (!in_file)
+		{
+			return hr;
+		}
+
+		//ファイルを書き込む動的配列
+		std::vector<char> shader_src;
+		//shader_srcのサイズをファイルに合わせる
+		std::size_t file_size = static_cast<std::size_t>
+			(in_file.seekg(0, in_file.end).tellg());
+		shader_src.resize(file_size);
+
+		//ファイル全体をshader_srcに読み込む
+		in_file.seekg(0, in_file.beg).read(shader_src.data(), shader_src.size());
+
+		//読み込んだファイル（バイトデータ）をシェーダーソースに変換するオブジェクト
+		ComPtr<IDxcLibrary> library;
+		DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library));
+
+		//シェーダソースを受け取るオブジェクト
+		ComPtr<IDxcBlobEncoding> source;
+		//バイトデータからシェーダーソースに変換
+		library->CreateBlobWithEncodingFromPinned(
+			shader_src.data(),
+			static_cast<UINT32>(shader_src.size()),
+			CP_UTF8,
+			&source);
+
+		//DXCコンパイルフラグ
+		LPCWSTR compiler_flags[]{
+#if _DEBUG
+			//デバッグ用フラグ
+			L"/Zi",L"/O0",
+#else
+			L"/02"
+#endif
+		};
+
+		//シェーダー内のincludeを解決してくれる
+		ComPtr<IDxcIncludeHandler>include_handler;
+		library->CreateIncludeHandler(include_handler.ReleaseAndGetAddressOf());
+
+		//コンパイルの結果を受け取るオブジェクト
+		ComPtr<IDxcOperationResult> result;
+
+		//シェーダコンパイラ
+		ComPtr<IDxcCompiler> compiler;
+		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+
+		//シェーダデータを実行可能な状態にコンパイル
+		compiler->Compile(
+			source.Get(),
+			file_path.wstring().c_str(),
+			L"main",
+			profile.c_str(),
+			compiler_flags,
+			_countof(compiler_flags),
+			nullptr,
+			0,
+			include_handler.Get(),
+			&result);
+
+		//コンパイルの結果をチェック
+		result->GetStatus(&hr);
+		if (SUCCEEDED(hr))
+		{
+			//コンパイル成功
+			//shader_blobにコンパイル後のシェーダデータを入れる
+			result->GetResult(
+				reinterpret_cast<IDxcBlob**>(shader_blob.GetAddressOf()));
+		}
+		else
+		{
+			//コンパイル失敗
+			//エラーを渡す
+			result->GetErrorBuffer(
+				reinterpret_cast<IDxcBlobEncoding**>(error_blob.GetAddressOf()));
+		}
+
+		return hr;
+	}
+
+		/// @brief HLSLファイルからBlobオブジェクトを作る
+		/// @param filename Blob化するHLSLファイルパス
+		/// @param profile シェーダープロファイル(シェーダーの種類)
+		/// @param shader_blob コンパいつ後のHLSLデータを受け取る
+		/// @return 処理成功ならtrue / そうでなければfalse
+		bool CreateShaderBlob(
+			const std::wstring& filename,
+			const std::wstring& profile,
+			ComPtr<ID3DBlob>& shader_blob
+		)
+		{
+			bool ret = true;
+
+			//シェーダープログラムは事前コンパイルしておく方法もあるが今回は都度コンパイル
+			ComPtr<ID3DBlob> error;
+
+			//上で作った関数デコンパイル
+			auto hr = CompileShaderFromFile(filename, profile, shader_blob, error);
+
+			//結果をチェック
+			if (FAILED(hr))
+			{
+				//errorの時はVSの出力にメッセージを出しておく	
+				OutputDebugStringA((const char*)error->GetBufferPointer());
+			}
+
+	}
+
 }// namespace
 
 /// @brief Windows アプリのエントリーポイント
@@ -626,6 +823,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 
 	//COMオブジェクトを使うときには呼んでおく必要がある
 	if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED)))
+	{
+		return 1;
+	}
+
+	//CPUの機能がDirectXMathに対応しているかチェック
+	if (!DirectX::XMVerifyCPUSupport())
 	{
 		return 1;
 	}
@@ -655,8 +858,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 	RECT window_rect{
 		0,
 		0,
-		kClienWidth,
-		kClienHeight };
+		clienWidth,
+		clienHeight };
 
 	//ウィンドウスタイルを含めたウィンドウサイズを計算する
 	AdjustWindowRect(&window_rect, window_style, FALSE);
