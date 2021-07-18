@@ -146,9 +146,18 @@ namespace {
 	//現在のバックバッファのインデックス
 	int backbuffer_index = 0;
 
-	/*-------------------------------------------*/
-	/*  描画用データ                                          */
-	/*-------------------------------------------*/
+	/*-------------------------------------------------*/
+	/*  パイプラインオブジェクト                          */
+	/*-------------------------------------------------*/
+	ComPtr<ID3DBlob> simple_vs;
+	ComPtr<ID3DBlob> simple_ps;
+	ComPtr<ID3D12RootSignature> simple_rs;
+	ComPtr<ID3D12PipelineState> simple_pso;
+
+
+	/*-------------------------------------------------*/
+	/*  描画用データ                                           */
+	/*------------------------------------------------*/
 	//頂点配列
 	Vertex vertices[]
 	{
@@ -157,6 +166,12 @@ namespace {
 		{XMFLOAT3{0.0f,0.5f,0.5f},XMFLOAT4{0.0f,1.0f,0.0f,1.0f}},
 		{XMFLOAT3{0.5f,-0.5f,0.5f},XMFLOAT4{0.0f,0.0f,1.0f,1.0f}},
 	};
+
+	//verticesを頂点バッファ化したオブジェクトを格納
+	ComPtr<ID3D12Resource> vertex_buffer;
+	//vertex_buffer変数の頂点バッファビュー
+	D3D12_VERTEX_BUFFER_VIEW vb_view;
+
 	/*-------------------------------------------*/
 	/*  プロトタイプ宣言                                   */
 	/*-------------------------------------------*/
@@ -175,8 +190,9 @@ namespace {
 	bool CreateShaderBlob(
 		const std::wstring& filename,
 		const std::wstring& profile,
-		ComPtr<ID3DBlob>& shader_blob
-	);
+		ComPtr<ID3DBlob>& shader_blob);
+	bool CreateSimplePSO();
+	bool PrepareResources();
 
 	/*-------------------------------------------*/
 	/*  関数定義                                                 */
@@ -600,7 +616,7 @@ namespace {
 			nullptr);
 
 		/*-----------------------------------------*/
-		/*  ゲームの描画処理開始                        */
+		/*  ゲームの描画処理開始                     */
 		/*-----------------------------------------*/
 
 
@@ -774,36 +790,222 @@ namespace {
 		return hr;
 	}
 
-		/// @brief HLSLファイルからBlobオブジェクトを作る
-		/// @param filename Blob化するHLSLファイルパス
-		/// @param profile シェーダープロファイル(シェーダーの種類)
-		/// @param shader_blob コンパいつ後のHLSLデータを受け取る
-		/// @return 処理成功ならtrue / そうでなければfalse
-		bool CreateShaderBlob(
-			const std::wstring& filename,
-			const std::wstring& profile,
-			ComPtr<ID3DBlob>& shader_blob
-		)
+	/// @brief HLSLファイルからBlobオブジェクトを作る
+	/// @param filename Blob化するHLSLファイルパス
+	/// @param profile シェーダープロファイル(シェーダーの種類)
+	/// @param shader_blob コンパいつ後のHLSLデータを受け取る
+	/// @return 処理成功ならtrue / そうでなければfalse
+	bool CreateShaderBlob(
+		const std::wstring& filename,
+		const std::wstring& profile,
+		ComPtr<ID3DBlob>& shader_blob)
+	{
+		bool ret = true;
+
+		//シェーダープログラムは事前コンパイルしておく方法もあるが今回は都度コンパイル
+		ComPtr<ID3DBlob> error;
+
+		//上で作った関数デコンパイル
+		auto hr = CompileShaderFromFile(filename, profile, shader_blob, error);
+
+		//結果をチェック
+		if (FAILED(hr))
+		{
+			//errorの時はVSの出力にメッセージを出しておく	
+			OutputDebugStringA((const char*)error->GetBufferPointer());
+		}
+		return ret;
+	}
+
+	/// @brief シンプルな描画を実現するPSOを作る
+	/// @return 処理成功ならtrue / そうでなければfalse
+	bool CreateSimplePSO()
+	{
+		//シェーダーオブジェクト作成
 		{
 			bool ret = true;
+			ret = CreateShaderBlob(
+				L"shader/VertexShader.hlsl",
+				L"vs_6_0",
+				simple_vs);
 
-			//シェーダープログラムは事前コンパイルしておく方法もあるが今回は都度コンパイル
-			ComPtr<ID3DBlob> error;
-
-			//上で作った関数デコンパイル
-			auto hr = CompileShaderFromFile(filename, profile, shader_blob, error);
-
-			//結果をチェック
-			if (FAILED(hr))
+			if (!ret)
 			{
-				//errorの時はVSの出力にメッセージを出しておく	
-				OutputDebugStringA((const char*)error->GetBufferPointer());
+				return false;
 			}
 
+			ret = CreateShaderBlob(
+				L"shader/PixelShader.hlsl",
+				L"ps_6_0",
+				simple_ps);
+
+			if (!ret)
+			{
+				return false;
+			}
+			return true;
+		}
+
+		//ルートシグネチャ作成
+		{
+			//ルートパラメータを定義
+			D3D12_ROOT_SIGNATURE_DESC rs_desc{
+				0,
+				nullptr,
+				0,
+				nullptr,
+				D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+			};
+
+			ComPtr<ID3DBlob> signature, error;
+			if (FAILED(D3D12SerializeRootSignature(
+				&rs_desc,
+				D3D_ROOT_SIGNATURE_VERSION_1_0,
+				&signature,
+				nullptr)))
+			{
+				//失敗したらエラーを出力
+				OutputDebugStringA((const char*)error->GetBufferPointer());
+				OutputDebugStringA("CreateRootSignature Failed.");
+				return false;
+			}
+
+			//ルートシグネチャオブジェクト作成
+			if (FAILED(d3d12_device->CreateRootSignature(
+				0,
+				signature->GetBufferPointer(),
+				signature->GetBufferSize(),
+				IID_PPV_ARGS(&simple_rs))))
+			{
+				return false;
+			}
+		}
+
+		//PSO作成
+		{
+			//パイプラインの動作設定するパラメータの準備
+			/*-------------------------------------------*/
+			//アウトプットマージャの設定
+			//不透明な描画
+			D3D12_BLEND_DESC blend_desc{};
+			//透明なピクセルをレンダリングした時の処理について
+			blend_desc.AlphaToCoverageEnable = false;
+			//レンダーターゲット度に個別設定するか
+			blend_desc.IndependentBlendEnable = false;
+			//ブレンディングの設定.MSのドキュメント等も参照すること
+			blend_desc.RenderTarget[0] = D3D12_RENDER_TARGET_BLEND_DESC{
+				FALSE,
+				FALSE,
+				D3D12_BLEND_ONE,
+				D3D12_BLEND_ZERO,
+				D3D12_BLEND_OP_ADD,
+				D3D12_BLEND_ONE,
+				D3D12_BLEND_ZERO,
+				D3D12_BLEND_OP_ADD,
+				D3D12_LOGIC_OP_NOOP,
+				D3D12_COLOR_WRITE_ENABLE_ALL,
+			};
+
+			//ラスタライザステート設定
+			D3D12_RASTERIZER_DESC  raster_desc = {
+				D3D12_FILL_MODE_SOLID,
+				D3D12_CULL_MODE_BACK,
+				FALSE,
+				D3D12_DEFAULT_DEPTH_BIAS,
+				D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
+				D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
+				TRUE,
+				FALSE,
+				FALSE,
+				0,
+				D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF };
+
+
+			//デプスステンシル
+			D3D12_DEPTH_STENCIL_DESC ds_desc{};
+			ds_desc.DepthEnable = FALSE;
+
+			//頂点レイアウト
+			D3D12_INPUT_LAYOUT_DESC input_layout = {
+				vertexLayouts,
+				_countof(vertexLayouts) };
+
+			/*-------------------------------------------*/
+
+
+			//パイプラインステートオブジェクトの定義を作成
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+
+			//ルートシグネチャ設定
+			pso_desc.pRootSignature = simple_rs.Get();
+
+			//頂点シェーダー設定
+			pso_desc.VS.pShaderBytecode = simple_vs->GetBufferPointer();
+			pso_desc.VS.BytecodeLength = simple_vs->GetBufferSize();
+
+			//ピクセルシェーダ設定
+			pso_desc.PS.pShaderBytecode = simple_ps->GetBufferPointer();
+			pso_desc.PS.BytecodeLength = simple_ps->GetBufferSize();
+
+			//ブレンドステート設定
+			pso_desc.BlendState = blend_desc;
+			//ラスタライザーステート設定
+			pso_desc.RasterizerState = raster_desc;
+
+			//ピクセルシェーダ出力先のレンダーターゲットの数
+			pso_desc.NumRenderTargets = 1;
+			//ピクセルシェーダが出力するレンダーターゲットのフォーマット
+			pso_desc.RTVFormats[0] = backbuffer_format;
+
+			//インプットアセンブラが使う頂点属性レイアウト
+			pso_desc.InputLayout = input_layout;
+			//プリミティブトポロジ設定
+			pso_desc.PrimitiveTopologyType =
+				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+			//デプスバッファとステンシルのフォーマットを設定
+			pso_desc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+			pso_desc.DepthStencilState = ds_desc;
+
+			//マルチサンプル設定
+			pso_desc.SampleDesc = { 1,0 };
+			pso_desc.SampleMask = UINT_MAX;
+
+			//PSO作成
+			if (FAILED(d3d12_device->CreateGraphicsPipelineState(
+				&pso_desc,
+				IID_PPV_ARGS(&simple_pso))))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+
+	/// @brief リソース作成を行う
+	/// @return 処理成功なら true / そうでなければ false
+	bool PrepareResources()
+	{
+		//頂点バッファ作成
+		{
+			//頂点データサイズ
+			UINT64 buffer_size = _countof(vertices) * sizeof(vertices[0]);
+
+			//GPUメモリに確保するリソースのメモリ設定
+			//CPU / GPUの読取り , 書込みなど可否設定
+			//リソースが頂点バッファなら以下でOK
+			D3D12_HEAP_PROPERTIES properties{};
+			properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+			properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			properties.CreationNodeMask = 0;
+			properties.VisibleNodeMask = 0;
+		}
+		return true;
 	}
 
 }// namespace
-
 /// @brief Windows アプリのエントリーポイント
 /// @param hInstance インスタンスハンドル,OSから見たアプリの管理番号みたいなもの
 /// @param hPrevInstance	 不使用(過去のAPIとの整合性維持用)
@@ -891,6 +1093,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 	ShowWindow(hwnd, nCmdShow);
 
 	if (InitializeD3D(hwnd) == false)
+	{
+		return 1;
+	}
+
+	if (CreateSimplePSO() == false)
 	{
 		return 1;
 	}

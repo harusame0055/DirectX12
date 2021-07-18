@@ -1,4 +1,13 @@
-float4 main() : SV_TARGET
+//ラスタライザから流れてくるデータを受け取るための構造体
+//基本的に頂点シェーダーからの出力と同じフォーマット
+struct PSIn {
+	float4 position : SV_POSITION;
+	float4 color : COLOR;
+};
+
+float4 main(PSIn In) : SV_TARGET
 {
-	return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	float4 color = In.color;
+
+	return color;
 }
