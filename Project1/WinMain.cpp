@@ -746,25 +746,40 @@ namespace {
 			static_cast<INT64>
 			(rtv_descriptor_size));
 
-		//描画対象のレンダーターゲットを設定するコマンド
+		// デプスステンシルビューを取得，先頭の１個だけなのでそのまま使う
+		D3D12_CPU_DESCRIPTOR_HANDLE dsv =
+			dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+
+
+		// 描画対象のレンダーターゲットを設定するコマンド
 		graphics_commandlist->OMSetRenderTargets(
 			1,
 			&rtv,
 			FALSE,
-			nullptr);
+			&dsv);
 
 
-		//塗りつぶす色. float4要素でRGBAを指定
+		// 塗りつぶす色. float4要素でRGBAを指定
 		float clear_color[4]{ 0,0.5f,1.0f,1.0f };
 
-		//指定したレンダーターゲットを、特定の色で塗りつぶし
+		// 指定したレンダーターゲットを、特定の色で塗りつぶし
 		graphics_commandlist->ClearRenderTargetView(
 			rtv,
 			clear_color,
 			0,
 			nullptr);
 
-		//バックバッファ全体に表示するビューポート / シザーの設定
+		// デプスステンシルバッファの内容クリアする
+		graphics_commandlist->ClearDepthStencilView(
+			dsv,
+			D3D12_CLEAR_FLAG_DEPTH,
+			1.0f,
+			0,
+			0,
+			nullptr);
+
+
+		// バックバッファ全体に表示するビューポート / シザーの設定
 		graphics_commandlist->RSSetViewports(1, &screen_viewport);
 		graphics_commandlist->RSSetScissorRects(1, &scissor_rect);
 		/*-----------------------------------------*/
@@ -778,7 +793,7 @@ namespace {
 		/*-----------------------------------------*/
 
 
-		//レンダーターゲットをバックバッファとして使えるようにする状態遷移
+		// レンダーターゲットをバックバッファとして使えるようにする状態遷移
 		{
 			D3D12_RESOURCE_BARRIER barrier{};
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -940,7 +955,7 @@ namespace {
 		}
 
 		return hr;
-}
+	}
 
 	/// @brief HLSLファイルからBlobオブジェクトを作る
 	/// @param filename Blob化するHLSLファイルパス
@@ -1071,9 +1086,25 @@ namespace {
 				D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF };
 
 
-			//デプスステンシル
+			//デプスステンシル設定
 			D3D12_DEPTH_STENCIL_DESC ds_desc{};
-			ds_desc.DepthEnable = FALSE;
+			ds_desc.DepthEnable = TRUE;
+			ds_desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+			ds_desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+			//ステンシル設定
+			ds_desc.StencilEnable = FALSE;
+			//舌がデフォルト的な設定になる
+			ds_desc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+			ds_desc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+			//ステンシルをどのように計算するか. デフォルト設定はこれになる.
+			constexpr D3D12_DEPTH_STENCILOP_DESC stencilop = {
+			D3D12_STENCIL_OP_KEEP,
+			D3D12_STENCIL_OP_KEEP,
+			D3D12_STENCIL_OP_KEEP,
+			D3D12_COMPARISON_FUNC_ALWAYS };
+			ds_desc.FrontFace = stencilop;
+			ds_desc.BackFace = stencilop;
+
 
 			//頂点レイアウト
 			D3D12_INPUT_LAYOUT_DESC input_layout = {
@@ -1113,8 +1144,8 @@ namespace {
 			pso_desc.PrimitiveTopologyType =
 				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
-			//デプスバッファとステンシルのフォーマットを設定
-			pso_desc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+			//デプスステンシルバッファの設定
+			pso_desc.DSVFormat = depth_stencil_format;
 			pso_desc.DepthStencilState = ds_desc;
 
 			//マルチサンプル設定
