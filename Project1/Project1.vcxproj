@@ -143,7 +143,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="src\descriptor_heap.cpp" />
+    <ClCompile Include="src\fps_timer.cpp" />
+    <ClCompile Include="src\texture.cpp" />
+    <ClCompile Include="src\WICTextureLoader12.cpp" />
+    <ClCompile Include="src\WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shader\PixelShader.hlsl">
@@ -166,6 +170,13 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\d3dx12.h" />
+    <ClInclude Include="src\descriptor_heap.h" />
+    <ClInclude Include="src\fps_timer.h" />
+    <ClInclude Include="src\texture.h" />
+    <ClInclude Include="src\WICTextureLoader12.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
