@@ -141,17 +141,34 @@ namespace {
 	ComPtr<ID3D12Resource> render_targets[maxBackBufferSize]{};
 	//バックバッファテクスチャのフォーマット. 1pxをRGBA各8bitずつの32bit
 	DXGI_FORMAT backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	//作成するバックバッファ数
+	// 作成するバックバッファ数
 	int backbuffer_size = 2;
-	//現在のバックバッファのインデックス
+	// 現在のバックバッファのインデックス
 	int backbuffer_index = 0;
 
 	D3D12_VIEWPORT screen_viewport{};
 	D3D12_RECT scissor_rect{};
 
-	/*-------------------------------------------------*/
-	/*  パイプラインオブジェクト                          */
-	/*-------------------------------------------------*/
+
+	/*-------------------------------------------*/
+	/*  デプスステンシル関連                            */
+	/*-------------------------------------------*/
+	// デプスステンシルバッファの１ピクセル当たりのフォーマット
+	// D32_FLOAT = [ D ] epth ( 深度値 )を32ビット精度浮動小数で0.0~1.0を記録
+	DXGI_FORMAT depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
+	// デプス値書き込み先	，	デプスステンシルバッファ
+	ComPtr<ID3D12Resource> depth_stencil_buffer = nullptr;
+	// デプスステンシルバッファは専用のディスクリプタヒープが必要
+	ComPtr<ID3D12DescriptorHeap> dsv_descriptor_heap = nullptr;
+	//デプスステンシルのディスクリプタサイズ
+	UINT dsv_descriptor_size = 0;
+
+
+
+
+	/*-------------------------------------------*/
+	/*  パイプラインオブジェクト                     */
+	/*-------------------------------------------*/
 	ComPtr<ID3DBlob> simple_vs;
 	ComPtr<ID3DBlob> simple_ps;
 	ComPtr<ID3D12RootSignature> simple_rs;
@@ -165,15 +182,43 @@ namespace {
 	Vertex vertices[]
 	{
 		//1頂点{ XMFLOAT3 {座標} ，XMFLOAT4 {色} }，
-		{XMFLOAT3{-0.5f,-0.5f,0.5f},XMFLOAT4{1.0f,0.0f,0.0f,1.0f}},
-		{XMFLOAT3{0.0f,0.5f,0.5f},XMFLOAT4{0.0f,1.0f,0.0f,1.0f}},
+		{XMFLOAT3{-0.5f,0.5f,0.5f},XMFLOAT4{1.0f,0.0f,0.0f,1.0f}},
+		{XMFLOAT3{0.5f,0.5f,0.5f},XMFLOAT4{0.0f,1.0f,0.0f,1.0f}},
 		{XMFLOAT3{0.5f,-0.5f,0.5f},XMFLOAT4{0.0f,0.0f,1.0f,1.0f}},
+		{XMFLOAT3{-0.5f,-0.5f,0.5f},XMFLOAT4{0.0f,0.0f,1.0f,1.0f}},
+
+		// 追加のグレーの三⾓形 その1 (Z座標は0.3で⼀番⼿前にでる)
+		{ XMFLOAT3{ -0.5f,0.5f, 0.3f}, XMFLOAT4{0.3f, 0.3f, 0.3f, 1.0f}},
+		{ XMFLOAT3{ 0.5f, -0.5f, 0.3f}, XMFLOAT4{0.3f, 0.3f, 0.3f, 1.0f}},
+		{ XMFLOAT3{ 0.0f, -0.5f, 0.3f}, XMFLOAT4{0.3f, 0.3f, 0.3f, 1.0f}},
+
+		// 追加の⽩い三⾓形 その2 (Z座標は0.7で⼀番奥になる)
+		{ XMFLOAT3{ -0.5f, 0.7f, 0.7f}, XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f}},
+		{ XMFLOAT3{ -0.1f, 0.1f, 0.7f}, XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f}},
+		{ XMFLOAT3{ -0.9f, 0.1f, 0.7f}, XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f}},
+	};
+
+	// 頂点インデックス配列 
+	// 頂点配列の要素番号をインデックスとして考える 
+	// 3つのインデックスで１トライアングル 
+	constexpr std::uint16_t indices[]
+	{
+		0,1,2,
+		2,3,0,
+		4,5,6,
+		7,8,9,
 	};
 
 	//verticesを頂点バッファ化したオブジェクトを格納
 	ComPtr<ID3D12Resource> vertex_buffer;
 	//vertex_buffer変数の頂点バッファビュー
 	D3D12_VERTEX_BUFFER_VIEW vb_view;
+
+	//	頂点インデックスをインデックスバッファ化したオブジェクトを格納
+	ComPtr<ID3D12Resource> index_buffer;
+	//	インデックスバッファビュー
+	D3D12_INDEX_BUFFER_VIEW ib_view;
+
 
 	/*-------------------------------------------*/
 	/*  プロトタイプ宣言                                   */
@@ -448,6 +493,91 @@ namespace {
 
 		//初回描画に備えて、現在のバックバッファの員デスク取得
 		backbuffer_index = swap_chain->GetCurrentBackBufferIndex();
+
+		// デプスステンシル (DS) バッファ作成
+		{
+			//デプスステンシルバッファ本体
+			{
+				D3D12_RESOURCE_DESC resource_desc{};
+				resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+				resource_desc.Width = clienWidth;
+				resource_desc.Height = clienHeight;
+				resource_desc.DepthOrArraySize = 1;
+				resource_desc.MipLevels = 0;
+				resource_desc.SampleDesc.Count = 1;
+				resource_desc.SampleDesc.Quality = 0;
+				resource_desc.Format = depth_stencil_format;
+				resource_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+				resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+				//ヒープ設定
+				D3D12_HEAP_PROPERTIES heap_prop{};
+				heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+				heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				heap_prop.CreationNodeMask = 1;
+				heap_prop.VisibleNodeMask = 1;
+
+				//デプスバッファをクリアするときの設定(テクスチャを塗りつぶす値)
+				D3D12_CLEAR_VALUE clear_value{};
+				clear_value.Format = depth_stencil_format;
+				clear_value.DepthStencil.Depth = 1.0f;
+				clear_value.DepthStencil.Stencil = 0;
+
+				//リソース作成
+				if (FAILED(d3d12_device->CreateCommittedResource(
+					&heap_prop,
+					D3D12_HEAP_FLAG_NONE,
+					&resource_desc,
+					D3D12_RESOURCE_STATE_DEPTH_WRITE,
+					&clear_value,
+					IID_PPV_ARGS(&depth_stencil_buffer))))
+				{
+					return false;
+				}
+				depth_stencil_buffer->SetName(L"depth_stencil_buffer");
+			}
+
+			//ディスクリプタヒープ
+			{
+				D3D12_DESCRIPTOR_HEAP_DESC descriptor_desc{};
+				descriptor_desc.NumDescriptors = 1;
+				descriptor_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+				if (FAILED(d3d12_device->CreateDescriptorHeap(
+					&descriptor_desc,
+					IID_PPV_ARGS(&dsv_descriptor_heap))))
+				{
+					return false;
+				}
+				dsv_descriptor_heap->SetName(L"dsv_descriptor_heap");
+			}
+
+			// 上で作ったデプスステンシルバッファのビュー作成
+			{
+				// 上で作ったリソースビューを作る
+				D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
+				dsv_desc.Format = depth_stencil_format;
+				dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+				dsv_desc.Flags = D3D12_DSV_FLAG_NONE;
+
+				//ビューのアドレス計算
+				D3D12_CPU_DESCRIPTOR_HANDLE dsv =
+					dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+				//ビュー作成，1個しかないので戦闘に書き込む
+				d3d12_device->CreateDepthStencilView(
+					depth_stencil_buffer.Get(),
+					&dsv_desc,
+					dsv);
+			}
+
+			//デスクリプタのサイズをもらっておく
+			dsv_descriptor_size = d3d12_device->GetDescriptorHandleIncrementSize(
+				D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+		}
+
+
 
 		//コマンドアロケータ作成　
 		{
@@ -810,7 +940,7 @@ namespace {
 		}
 
 		return hr;
-	}
+}
 
 	/// @brief HLSLファイルからBlobオブジェクトを作る
 	/// @param filename Blob化するHLSLファイルパス
@@ -1066,6 +1196,61 @@ namespace {
 			vb_view.SizeInBytes = static_cast<UINT>(buffer_size);
 			vb_view.StrideInBytes = sizeof(vertices[0]);
 		}
+
+		// インデックスバッファ作成
+		{
+			// インデックスデータのサイズ
+			UINT buffer_size = _countof(indices) * sizeof(indices[0]);
+
+			// インデックスデータを書き込むためのリソースを確保
+			{
+				D3D12_HEAP_PROPERTIES properties{};
+				properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+				properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+				properties.CreationNodeMask = 0;
+				properties.VisibleNodeMask = 0;
+
+				// リソースの意味やデータ構造を記述
+				D3D12_RESOURCE_DESC desc{};
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = 0;
+				desc.Width = buffer_size;
+				desc.Height = 1;
+				desc.DepthOrArraySize = 1;
+				desc.MipLevels = 1;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc.Count = 1;
+				desc.SampleDesc.Quality = 0;
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+				//リソース領域メモリの確保
+				HRESULT hr = d3d12_device->CreateCommittedResource(
+					&properties,
+					D3D12_HEAP_FLAG_NONE,
+					&desc,
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(index_buffer.ReleaseAndGetAddressOf()));
+				if (FAILED(hr))
+				{
+					return false;
+				}
+				index_buffer->SetName(L"Index Buffer");
+			}
+
+			// バッファにインデックスデータをコピーする
+			void* mapped = nullptr;
+			D3D12_RANGE range{ 0,0 };
+			index_buffer->Map(0, &range, &mapped);
+			std::memcpy(mapped, indices, buffer_size);
+			index_buffer->Unmap(0, nullptr);
+
+			ib_view.BufferLocation = index_buffer->GetGPUVirtualAddress();
+			ib_view.SizeInBytes = static_cast<UINT>(buffer_size);
+			ib_view.Format = DXGI_FORMAT_R16_UINT;
+		}
 		return true;
 	}
 
@@ -1076,8 +1261,10 @@ namespace {
 		graphics_commandlist->SetGraphicsRootSignature(simple_rs.Get());
 		graphics_commandlist->IASetPrimitiveTopology(
 			D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 		graphics_commandlist->IASetVertexBuffers(0, 1, &vb_view);
-		graphics_commandlist->DrawInstanced(_countof(vertices), 1, 0, 0);
+		graphics_commandlist->IASetIndexBuffer(&ib_view);
+		graphics_commandlist->DrawIndexedInstanced(_countof(indices), 1, 0, 0, 0);
 	}
 
 }// namespace
