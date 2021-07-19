@@ -146,6 +146,9 @@ namespace {
 	//現在のバックバッファのインデックス
 	int backbuffer_index = 0;
 
+	D3D12_VIEWPORT screen_viewport{};
+	D3D12_RECT scissor_rect{};
+
 	/*-------------------------------------------------*/
 	/*  パイプラインオブジェクト                          */
 	/*-------------------------------------------------*/
@@ -193,6 +196,7 @@ namespace {
 		ComPtr<ID3DBlob>& shader_blob);
 	bool CreateSimplePSO();
 	bool PrepareResources();
+	void RenderSimplePolygon();
 
 	/*-------------------------------------------*/
 	/*  関数定義                                                 */
@@ -516,6 +520,21 @@ namespace {
 				return false;
 			}
 		}
+
+		//ビューポート・シザー短形設定
+		screen_viewport.TopLeftX = 0.0f;
+		screen_viewport.TopLeftY = 0.0f;
+		screen_viewport.Width = static_cast<FLOAT>(clienWidth);
+		screen_viewport.Height = static_cast<FLOAT>(clienHeight);
+		screen_viewport.MinDepth = D3D12_MIN_DEPTH;
+		screen_viewport.MaxDepth = D3D12_MAX_DEPTH;
+
+		scissor_rect.left = 0;
+		scissor_rect.top = 0;
+		scissor_rect.right = clienWidth;
+		scissor_rect.bottom = clienHeight;
+
+
 		return true;
 	}
 
@@ -615,11 +634,15 @@ namespace {
 			0,
 			nullptr);
 
+		//バックバッファ全体に表示するビューポート / シザーの設定
+		graphics_commandlist->RSSetViewports(1, &screen_viewport);
+		graphics_commandlist->RSSetScissorRects(1, &scissor_rect);
+
 		/*-----------------------------------------*/
 		/*  ゲームの描画処理開始                     */
 		/*-----------------------------------------*/
 
-
+		RenderSimplePolygon();
 
 		/*-----------------------------------------*/
 		/*  ゲームの描画処理終了                         */
@@ -1001,8 +1024,63 @@ namespace {
 			properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 			properties.CreationNodeMask = 0;
 			properties.VisibleNodeMask = 0;
+
+			//リソースの意味やデータ構造を記述
+			D3D12_RESOURCE_DESC desc{};
+			desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			desc.Alignment = 0;
+			desc.Width = buffer_size;
+			desc.Height = 1;
+			desc.DepthOrArraySize = 1;
+			desc.MipLevels = 1;
+			desc.Format = DXGI_FORMAT_UNKNOWN;
+			desc.SampleDesc.Count = 1;
+			desc.SampleDesc.Quality = 0;
+			desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+			//リソース領域メモリ確保
+			HRESULT hr = d3d12_device->CreateCommittedResource(
+				&properties,
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&vertex_buffer));
+			if (FAILED(hr))
+			{
+				return false;
+			}
+			vertex_buffer->SetName(L"Vertex Buffer");
+
+			//上で確保したリソース領域に頂点データをコピーする
+			void* mapped = nullptr;
+			D3D12_RANGE range{};
+
+			if (FAILED(vertex_buffer->Map(0, &range, &mapped)))
+			{
+				return false;
+			}
+			std::memcpy(mapped, vertices, buffer_size);
+			vertex_buffer->Unmap(0, nullptr);
+
+			//頂点バッファビューを作成
+			vb_view.BufferLocation = vertex_buffer->GetGPUVirtualAddress();
+			vb_view.SizeInBytes = static_cast<UINT>(buffer_size);
+			vb_view.StrideInBytes = sizeof(vertices[0]);
 		}
 		return true;
+	}
+
+	/// @brief 単純なポリゴンの描画
+	void RenderSimplePolygon()
+	{
+		graphics_commandlist->SetPipelineState(simple_pso.Get());
+		graphics_commandlist->SetGraphicsRootSignature(simple_rs.Get());
+		graphics_commandlist->IASetPrimitiveTopology(
+			D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		graphics_commandlist->IASetVertexBuffers(0, 1, &vb_view);
+		graphics_commandlist->DrawInstanced(_countof(vertices), 1, 0, 0);
 	}
 
 }// namespace
@@ -1098,6 +1176,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	if (CreateSimplePSO() == false)
+	{
+		return 1;
+	}
+
+	if (PrepareResources() == false)
 	{
 		return 1;
 	}
