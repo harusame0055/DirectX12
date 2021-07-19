@@ -637,7 +637,6 @@ namespace {
 		//バックバッファ全体に表示するビューポート / シザーの設定
 		graphics_commandlist->RSSetViewports(1, &screen_viewport);
 		graphics_commandlist->RSSetScissorRects(1, &scissor_rect);
-
 		/*-----------------------------------------*/
 		/*  ゲームの描画処理開始                     */
 		/*-----------------------------------------*/
@@ -851,7 +850,6 @@ namespace {
 				L"shader/VertexShader.hlsl",
 				L"vs_6_0",
 				simple_vs);
-
 			if (!ret)
 			{
 				return false;
@@ -866,7 +864,6 @@ namespace {
 			{
 				return false;
 			}
-			return true;
 		}
 
 		//ルートシグネチャ作成
