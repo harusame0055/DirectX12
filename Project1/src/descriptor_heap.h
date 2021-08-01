@@ -6,51 +6,78 @@
 
 namespace ncc {
 
-/// @brief ディスクリプタハンドルを使いやすくしたクラス
-class DescriptorHandle {
-public:
-  DescriptorHandle() = default;
-  ~DescriptorHandle() = default;
+	/// @brief ディスクリプタハンドルを使いやすくしたクラス
+	class DescriptorHandle {
+	public:
+		DescriptorHandle() = default;
+		~DescriptorHandle() = default;
 
-  D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle();
-  D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle();
-  bool IsValid();
+		/// @brief CPUハンドルの取得
+		/// @return D3D12_CPU_DESCRIPTOR_HANDLE
+		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle();
 
-private:
-  friend class DescriptorHeap;
+		/// @brief GPUハンドルの取得
+		/// @return D3D12_GPU_DESCRIPTOR_HANDLE
+		D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle();
 
-  D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_{};
-  D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle_{};
+		/// @brief ハンドルが有効
+		/// @retval true 有効
+		/// @retval false 無効
+		bool IsValid();
 
-  Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap_;
-  UINT index_ = 0;
-};
+	private:
+		friend class DescriptorHeap;
 
-/// @brief ディスクリプタヒープを使いやすくするクラス
-class DescriptorHeap {
-public:
-  DescriptorHeap() = default;
-  ~DescriptorHeap() = default;
+		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_{};
+		D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle_{};
 
-  bool Initialize(Microsoft::WRL::ComPtr<ID3D12Device> device, const D3D12_DESCRIPTOR_HEAP_DESC& desc);
-  void Finalize();
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap_;
+		UINT index_ = 0;
+	};
 
-  bool Allocate(DescriptorHandle* handle);
-  bool Free(DescriptorHandle* handle);
+	/// @brief ディスクリプタヒープを使いやすくするクラス
+	class DescriptorHeap {
+	public:
+		DescriptorHeap() = default;
+		~DescriptorHeap() = default;
 
-  Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap();
+		/// @brief 初期化
+		/// @param device ComPtr<ID3D12Device>
+		/// @param desc ヒープ記述子
+		/// @retval true 成功
+		/// @retval false 失敗
+		bool Initialize(Microsoft::WRL::ComPtr<ID3D12Device> device, const D3D12_DESCRIPTOR_HEAP_DESC& desc);
 
-private:
-  D3D12_DESCRIPTOR_HEAP_DESC heap_desc_{};
-  Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap_;
-  UINT increment_size_ = 0;
+		/// @brief 終了処理
+		void Finalize();
 
-  D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_start_{};
-  D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle_start_{};
+		/// @brief デスクリプタ確保
+		/// @param handle 確保したデスクリプタを書き込むハンドル
+		/// @retval true 成功
+		/// @retval false 失敗
+		bool Allocate(DescriptorHandle* handle);
 
-  UINT heap_index_ = 0;
-  UINT alloc_count_ = 0;
+		/// @brief デスクリプタ解放
+		/// @param handle 解放するデスクリプタ
+		/// @retval true 成功
+		/// @retval false 失敗
+		bool Free(DescriptorHandle* handle);
 
-  std::list<UINT> free_list_;
-};
+		/// @brief デスクリプタヒープ本体
+		/// @return ComPtr<ID3D12DescriptorHeap>
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap();
+
+	private:
+		D3D12_DESCRIPTOR_HEAP_DESC heap_desc_{};
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap_;
+		UINT increment_size_ = 0;
+
+		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle_start_{};
+		D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle_start_{};
+
+		UINT heap_index_ = 0;
+		UINT alloc_count_ = 0;
+
+		std::list<UINT> free_list_;
+	};
 } //namespace ncc

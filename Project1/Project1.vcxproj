@@ -144,8 +144,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\descriptor_heap.cpp" />
-    <ClCompile Include="src\fps_timer.cpp" />
+    <ClCompile Include="src\keyboard.cpp" />
+    <ClCompile Include="src\mouse.cpp" />
     <ClCompile Include="src\texture.cpp" />
+    <ClCompile Include="src\utility.cpp" />
     <ClCompile Include="src\WICTextureLoader12.cpp" />
     <ClCompile Include="src\WinMain.cpp" />
   </ItemGroup>
@@ -174,8 +176,10 @@
   <ItemGroup>
     <ClInclude Include="src\d3dx12.h" />
     <ClInclude Include="src\descriptor_heap.h" />
-    <ClInclude Include="src\fps_timer.h" />
+    <ClInclude Include="src\keyboard.h" />
+    <ClInclude Include="src\mouse.h" />
     <ClInclude Include="src\texture.h" />
+    <ClInclude Include="src\utility.h" />
     <ClInclude Include="src\WICTextureLoader12.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
