@@ -95,7 +95,7 @@ namespace ncc {
 	private:
 		friend bool LoadTextureFromFile(Microsoft::WRL::ComPtr<ID3D12Device> device,
 			TextureResource* texture);
-		friend class TextureUploadComandList;
+		friend class TextureUploadCommandList;
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
 		std::wstring name_;
@@ -108,11 +108,11 @@ namespace ncc {
 
 	/// @brief システムメモリにあるテクスチャデータをGPUメモリに
 	/// アップロードするための処理を行う
-	class TextureUploadComandList
+	class TextureUploadCommandList
 	{
 	public :
-		TextureUploadComandList() = default;
-		~TextureUploadComandList() = default;
+		TextureUploadCommandList() = default;
+		~TextureUploadCommandList() = default;
 
 		/// @brief テクスチャアップロードコマンド記録開始
 		/// @param device ID3D12Deviceポインタ
