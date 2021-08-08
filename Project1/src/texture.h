@@ -106,5 +106,88 @@ namespace ncc {
 
 	};
 
+	/// @brief システムメモリにあるテクスチャデータをGPUメモリに
+	/// アップロードするための処理を行う
+	class TextureUploadComandList
+	{
+	public :
+		TextureUploadComandList() = default;
+		~TextureUploadComandList() = default;
 
+		/// @brief テクスチャアップロードコマンド記録開始
+		/// @param device ID3D12Deviceポインタ
+		/// @return 成功ならtrue / 失敗ならfalse
+		bool BeginRecording(Microsoft::WRL::ComPtr<ID3D12Device> device);
+
+		/// @brief コマンド記録終了
+		/// @return 成功ならtrue / 失敗ならfalse
+		bool EndRecording();
+
+		/// @brief バッファデータをGPUメモリに転送
+		/// @return 成功ならtrue /　失敗ならfalse
+		bool Execute();
+
+		/// @brief GPUメモリにアップロードしたいTextureResourceをコマンドリストに追加する
+		/// @param texture 対象のテクスチャ
+		/// @return 成功ならtrue /　失敗ならfalse
+		bool AddList(TextureResource* texture);
+
+	private:
+		Microsoft::WRL::ComPtr<ID3D12Device> device_;
+		Microsoft::WRL::ComPtr<ID3D12CommandAllocator>allocator_;
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> command_list_;
+
+		std::vector<TextureResource*>upload_list_;
+		std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>>buffers_;
+
+		bool is_begin_recording_ = false;
+	};
+
+	/// @brief テクスチャリソースのシェーダリソースビューを処理するクラス
+	class TextureView {
+	public:
+		TextureView() = default;
+
+		/// @brief デストラクタ
+		~TextureView();
+
+		/// @brief ビュー作成
+		/// @param device ComPtr<ID3D12Device>
+		/// @param srv_heap ビューを書き込むヒープ
+		/// @param texture 作成対象テクスチャリソース
+		/// @retval true 成功
+		/// @retval false 失敗
+		bool Create(Microsoft::WRL::ComPtr<ID3D12Device> device,
+			DescriptorHeap* srv_heap,
+			TextureResource* texture);
+
+		/// @brief 解放処理
+		/// @retval true 成功
+		/// @retval false 失敗
+		bool Release();
+
+		/// @brief ビューが指すリースを取得
+		/// @return ComPtr<ID3D12Resource>
+		Microsoft::WRL::ComPtr<ID3D12Resource> resource()
+		{
+			return texture_->resource();
+		}
+
+		/// @brief ビューのGPUハンドルを取得
+		/// @return D3D12_GPU_DESCRIPTOR_HANDLE
+		D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle()
+		{
+			return handle_.gpu_handle();
+		}
+
+		D3D12_CPU_DESCRIPTOR_HANDLE cpu_hadle()
+		{
+			return handle_.cpu_handle();
+		}
+
+	private:
+		TextureResource* texture_ = nullptr;
+		DescriptorHeap* heap_ = nullptr;
+		DescriptorHandle handle_;
+	};
 }
