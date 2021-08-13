@@ -143,9 +143,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\constant_buffer.cpp" />
     <ClCompile Include="src\descriptor_heap.cpp" />
     <ClCompile Include="src\keyboard.cpp" />
     <ClCompile Include="src\mouse.cpp" />
+    <ClCompile Include="src\sprite.cpp" />
+    <ClCompile Include="src\sprite_render.cpp" />
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\utility.cpp" />
     <ClCompile Include="src\WICTextureLoader12.cpp" />
@@ -174,10 +177,13 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\constant_buffer.h" />
     <ClInclude Include="src\d3dx12.h" />
     <ClInclude Include="src\descriptor_heap.h" />
     <ClInclude Include="src\keyboard.h" />
     <ClInclude Include="src\mouse.h" />
+    <ClInclude Include="src\sprite.h" />
+    <ClInclude Include="src\sprite_render.h" />
     <ClInclude Include="src\texture.h" />
     <ClInclude Include="src\utility.h" />
     <ClInclude Include="src\WICTextureLoader12.h" />

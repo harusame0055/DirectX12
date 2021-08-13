@@ -287,7 +287,7 @@ namespace ncc {
 		upload_list_.emplace_back(texture);
 
 		buffers_.emplace_back(staging_buffer);
-		
+
 		return true;
 	}
 
@@ -302,7 +302,52 @@ namespace ncc {
 	bool TextureView::Create(Microsoft::WRL::ComPtr<ID3D12Device>device,
 		DescriptorHeap* srv_heap, TextureResource* texture)
 	{
+		if (device == nullptr ||
+			srv_heap == nullptr ||
+			texture == nullptr ||
+			texture->IsValid() == false)
+		{
+			return false;
+		}
+		heap_ = srv_heap;
+		texture_ = texture;
 
+		// ディスクリプタハンドル作成
+		srv_heap->Allocate(&handle_);
+
+		// SRV作成
+		{
+			const D3D12_RESOURCE_DESC texture_desc = texture->resource()->GetDesc();
+
+			// シェーダリソースビューの設定
+			D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+			// 2次元テクスチャとして設定
+			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;	// 2次元テクスチャ
+			// シェーダにデータを返す時のメモリの処理
+			srv_desc.Shader4ComponentMapping =
+				D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			// 下の二つはテクスチャリソースと合わせておく
+			srv_desc.Format = texture_desc.Format;
+			srv_desc.Texture2D.MipLevels = texture_desc.MipLevels;
+
+			device->CreateShaderResourceView(
+				texture->resource().Get(),
+				&srv_desc,
+				handle_.cpu_handle());
+		}
+
+		return true;
 	}
 
-}
+	bool TextureView::Release()
+	{
+		if (!heap_->Free(&handle_))
+		{
+			return false;
+		}
+		texture_ = nullptr;
+		heap_ = nullptr;
+		return true;
+	}
+
+}// namespace ncc
