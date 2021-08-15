@@ -388,6 +388,134 @@ namespace ncc {
 		return true;
 	}
 
+	/// @brief ルートシグネチャ作成
+	/// @param device 
+	/// @retval true 処理成功
+	/// @retval false 処理失敗
+	bool SpriteRenderer::CreateRootSignature(ID3D12Device* device)
+	{
+		// 静的サンプラーの設定
+		D3D12_STATIC_SAMPLER_DESC sampler{};
+		// テクスチャフィルタリング
+		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		// テクスチャアドレッシング
+		sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler.MipLODBias = 0;
+		sampler.MaxAnisotropy = 0;
+		sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		sampler.MinLOD = 0.0f;
+		sampler.MaxLOD = D3D12_FLOAT32_MAX;
+		sampler.ShaderRegister = 0;
+		sampler.RegisterSpace = 0;
+
+		// シェーダー指定
+		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+		/*----------------------------------------------*/
+		/* D3D12_DESCRIPTOR_RANGE作成          */
+		/*----------------------------------------------*/
+
+		// srv用のRange
+		D3D12_DESCRIPTOR_RANGE srv{};
+
+		// テクスチャリソース1個のパラメータ設定
+		srv.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		srv.NumDescriptors = 1;
+		srv.BaseShaderRegister = 0;
+		srv.RegisterSpace = 0;
+		srv.OffsetInDescriptorsFromTableStart =
+			D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		/*----------------------------------------------*/
+		/* シーン全体で共通する定数バッファ用のRange*/
+		/*----------------------------------------------*/
+		D3D12_DESCRIPTOR_RANGE scene_cbv{};
+		scene_cbv.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		scene_cbv.NumDescriptors = 1;
+		scene_cbv.BaseShaderRegister = 0;
+		scene_cbv.RegisterSpace = 0;
+		scene_cbv.OffsetInDescriptorsFromTableStart =
+			D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		/*----------------------------------------------*/
+		/* オブジェクト毎の定数バッファ用のRange  */
+		/*----------------------------------------------*/
+		D3D12_DESCRIPTOR_RANGE obj_cbv{};
+		obj_cbv.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		obj_cbv.NumDescriptors = 1;
+		obj_cbv.BaseShaderRegister = 1;
+		obj_cbv.RegisterSpace = 0;
+		obj_cbv.OffsetInDescriptorsFromTableStart =
+			D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		/*----------------------------------------------*/
+		/* D3D12_ROOT_PARAMETER設定             */
+		/*----------------------------------------------*/
+		D3D12_ROOT_PARAMETER root_param[2]{};
+		// srv
+		root_param[0].ParameterType =
+			D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		root_param[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		// パラメータの配列
+		root_param[0].DescriptorTable.NumDescriptorRanges = 1;
+		root_param[0].DescriptorTable.pDescriptorRanges = &srv; // 先頭アドレス
+		/*--------------*/
+		/* scene_cbv  */
+		/*--------------*/
+		root_param[1].ParameterType =
+			D3D12_ROOT_PARAMETER_TYPE_CBV;
+		// 頂点シェーダで使うから SHADER_VISIBILITY_VERTEX
+		root_param[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+		root_param[1].Descriptor.RegisterSpace = 0;
+		root_param[1].Descriptor.ShaderRegister = 0;
+
+		// 設定したいROOT_PARAMETERを渡す
+		D3D12_ROOT_SIGNATURE_DESC rs_desc{};
+		rs_desc.NumParameters = _countof(root_param);
+		// ROOT_PARAMETERの先頭要素のアドレス
+		rs_desc.pParameters = root_param;
+		rs_desc.NumStaticSamplers = 1;
+		// スタティックサンプラ配列の先頭要素アドレス
+		rs_desc.pStaticSamplers = &sampler;
+		rs_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+
+		// D3D12_ROOT_SIGNATURE_DESCが GPU が処理できる形式に変換
+		ComPtr<ID3DBlob>signature, error;
+		if (FAILED(D3D12SerializeRootSignature(
+			&rs_desc,
+			D3D_ROOT_SIGNATURE_VERSION_1_0,
+			&signature,
+			nullptr)))
+		{
+			// 失敗したらエラーを出力
+			OutputDebugStringA((const char*)error->GetBufferPointer());
+			OutputDebugStringA("CreateRootSignature Failed.");
+			return false;
+		}
+
+		// ルートシグネチャオブジェクト作成
+		if (FAILED(device->CreateRootSignature(
+			0,
+			signature->GetBufferPointer(),
+			signature->GetBufferSize(),
+			IID_PPV_ARGS(&root_signature_))))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	/// @brief シェーダーブログ作成 
+	bool SpriteRenderer::CreateShader()
+	{
+
+	}
+
 #pragma endregion
 
 
