@@ -510,13 +510,187 @@ namespace ncc {
 		return true;
 	}
 
-	/// @brief シェーダーブログ作成 
+	/// @brief シェーダーブロブ作成 
 	bool SpriteRenderer::CreateShader()
 	{
+		bool ret = true;
+		ret = CreateShaderBlob(L"shader/VertexShader.hlsl",
+			L"vs_6_0",
+			vs_);
+		if (!ret)
+		{
+			return ret;
+		}
 
+		ret = CreateShaderBlob(L"shader/PixelShader.hlsl",
+			L"ps_6_0",
+			ps_);
+		if (!ret)
+		{
+			return ret;
+		}
+
+		return ret;
 	}
 
+	/// @brief 頂点バッファ作成，頂点バッファは毎フレーム作り直すのでバックバッファ数でバッファリング
+	/// @param device ID3D12Device
+	/// @param buffering_count 頂点バッファのバッファリング数
+	/// @retval true 成功
+	/// @retval false 失敗
+	bool SpriteRenderer::CreateVertexBuffer(ID3D12Device* device, const int buffering_count)
+	{
+		// データは毎フレーム構築する
+
+		UINT buffer_size = maxSpriteSize * verticesPerSprite * sizeof(SpriteVertex);
+
+		D3D12_HEAP_PROPERTIES properties{};
+		properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		properties.CreationNodeMask = 0;
+		properties.VisibleNodeMask = 0;
+
+
+		D3D12_RESOURCE_DESC desc{};
+		desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		desc.Alignment = 0;
+		desc.Width = buffer_size;
+		desc.Height = 1;
+		desc.DepthOrArraySize = 1;
+		desc.MipLevels = 1;
+		desc.Format = DXGI_FORMAT_UNKNOWN;
+		desc.SampleDesc.Count = 1;
+		desc.SampleDesc.Quality = 0;
+		desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+		vertex_buffers_.clear();
+		vertex_buffers_.resize(buffering_count);
+		vb_views_.clear();
+		vb_views_.resize(buffering_count);
+
+		vb_addrs_.clear();
+		vb_addrs_.resize(buffering_count);
+
+		for (int i = 0; i < buffering_count; i++)
+		{
+			if (FAILED(device->CreateCommittedResource(
+				&properties,
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(vertex_buffers_[i].ReleaseAndGetAddressOf()))))
+			{
+				return false;
+			}
+			std::wstring str = L"SpriteRenderer VertexBuffer_" + std::to_wstring(i);
+			vertex_buffers_[i]->SetName(str.c_str());
+
+			if (FAILED(vertex_buffers_[i]->Map(0, nullptr, &vb_addrs_[i])))
+			{
+				return false;
+			}
+
+			vb_views_[i].BufferLocation = vertex_buffers_[i]->GetGPUVirtualAddress();
+			vb_views_[i].SizeInBytes = static_cast<UINT>(buffer_size);
+			vb_views_[i].StrideInBytes = sizeof(SpriteVertex);
+		}
+
+		return true;
+	}
+
+	/// @brief 頂点データ作成
+	void SpriteRenderer::MakeVertices()
+	{
+		std::vector<GpuHandlePtr> handles;
+
+		// 今回フレームで使う頂点バッファを取得
+		SpriteVertex* vertex = static_cast<SpriteVertex*>(vb_addrs_[backbuffer_index_]);
+
+		// 1スプタイト(4頂点)ずつ頂点を作る
+		// テクスチャ単位でスプタイトをリスト化，まとまておく
+
+		int index = 0;	//	頂点バッファの書込み位置
+		for (const auto& list : draw_lists_)
+		{
+			handles.emplace_back(list.first);
+
+			for (const auto sprite : list.second)
+			{
+				auto half_w = sprite->size.x * 0.5f;
+				auto half_h = sprite->size.y * 0.5f;
+
+				// コサイン・サインの計算
+				auto cos = XMScalarCos(sprite->rotation);
+				auto sin = XMScalarSin(sprite->rotation);
+
+				auto x = offset_position_.x + sprite->pos.x;
+				auto y = offset_position_.y - sprite->pos.y;
+
+				// スプライト左上頂点
+				vertex[index].position.x = ((-half_w) * cos) - ((half_h)*sin) + x;
+				vertex[index].position.y = ((-half_w) * sin) + ((half_h)*cos) + y;
+				vertex[index].position.z = sprite->pos.z;
+				vertex[index].color = sprite->color;
+				vertex[index].texcoord.x = sprite->texcoord.x;
+				vertex[index].texcoord.y = sprite->texcoord.y;
+				// スプライト右上頂点
+				vertex[index + 1].position.x = ((half_w)*cos) - ((half_h)*sin) + x;
+				vertex[index + 1].position.y = ((half_w)*sin) + ((half_h)*cos) + y;
+				vertex[index + 1].position.z = sprite->pos.z;
+				vertex[index + 1].color = sprite->color;
+				vertex[index + 1].texcoord.x = sprite->texcoord.z;
+				vertex[index + 1].texcoord.y = sprite->texcoord.y;
+				// スプライト左下頂点
+				vertex[index + 2].position.x = ((-half_w) * cos) - ((-half_h) * sin) + x;
+				vertex[index + 2].position.y = ((-half_w) * sin) + ((-half_h) * cos) + y;
+				vertex[index + 2].position.z = sprite->pos.z;
+				vertex[index + 2].color = sprite->color;
+				vertex[index + 2].texcoord.x = sprite->texcoord.x;
+				vertex[index + 2].texcoord.y = sprite->texcoord.w;
+				// スプライト右下頂点
+				vertex[index + 3].position.x = ((half_w)*cos) - ((-half_h) * sin) + x;
+				vertex[index + 3].position.y = ((half_w)*sin) + ((-half_h) * cos) + y;
+				vertex[index + 3].position.z = sprite->pos.z;
+				vertex[index + 3].color = sprite->color;
+				vertex[index + 3].texcoord.x = sprite->texcoord.z;
+				vertex[index + 3].texcoord.y = sprite->texcoord.w;
+
+				// 次のスプライトのためにインデックスを進める
+				index += 4;
+			}
+		}
+	}
+
+	/// @brief 描画コマンド作成
+	void SpriteRenderer::Rendering()
+	{
+		command_list_->SetPipelineState(pso_.Get());
+		command_list_->SetGraphicsRootSignature(root_signature_.Get());
+		command_list_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		command_list_->IASetIndexBuffer(&ib_view_);
+		command_list_->IASetVertexBuffers(0, 1, &vb_views_[backbuffer_index_]);
+		command_list_->SetGraphicsRootConstantBufferView(1, view_proj_buffer_.resource(backbuffer_index_)->GetGPUVirtualAddress());
+
+		std::size_t draw_count = 0;
+		for (const auto& list : draw_lists_)
+		{
+			D3D12_GPU_DESCRIPTOR_HANDLE srv{ list.first };
+			command_list_->SetGraphicsRootDescriptorTable(0, srv);
+
+			auto count = list.second.size();
+			command_list_->DrawIndexedInstanced(
+				count * indicesPerSprite,			// 描画に使うインデックス数
+				1,
+				draw_count * indicesPerSprite,	// 頂点バッファの読み取り位置
+				0, 0);
+
+			// 次の描画用に描画数を更新
+			draw_count += count;
+		}
+	}
 #pragma endregion
 
-
-}
+} // namespace ncc

@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="src\constant_buffer.cpp" />
     <ClCompile Include="src\descriptor_heap.cpp" />
+    <ClCompile Include="src\fps_timer.cpp" />
     <ClCompile Include="src\keyboard.cpp" />
     <ClCompile Include="src\mouse.cpp" />
     <ClCompile Include="src\sprite.cpp" />
@@ -180,6 +181,7 @@
     <ClInclude Include="src\constant_buffer.h" />
     <ClInclude Include="src\d3dx12.h" />
     <ClInclude Include="src\descriptor_heap.h" />
+    <ClInclude Include="src\fps_timer.h" />
     <ClInclude Include="src\keyboard.h" />
     <ClInclude Include="src\mouse.h" />
     <ClInclude Include="src\sprite.h" />
