@@ -75,4 +75,48 @@ namespace ncc {
 		return delta_ticks_;
 	}
 
-}
+	/// @brief タイマ開始からの経過時間
+	/// @return 経過秒数
+	double FpsTimer::total_second() const
+	{
+		return TicksToSeconds(total_ticks_);
+	}
+
+	/// @brief タイマ開始からの経過時間
+	/// @return 経過 Tick 数
+	std::uint64_t FpsTimer::total_ticks() const
+	{
+		return total_ticks_;
+	}
+
+	/// @brief タイマ開始からのフレーム数
+	/// @return 総フレーム数
+	std::uint32_t FpsTimer::frame_count() const
+	{
+		return total_frame_count_;
+	}
+
+	/// @brief 直近1秒のフレームレート
+	/// @return フレームレート
+	std::uint32_t FpsTimer::frames_per_second() const
+	{
+		return fps_;
+	}
+
+	/// @brief Tick数を秒数に変換するヘルパー関数
+	/// @param ticks 変換したい Tick 数
+	/// @return 変換後の秒数
+	double FpsTimer::TicksToSeconds(const std::uint64_t ticks)
+	{
+		return static_cast<double>(ticks) / TicksPerSecond;
+	}
+
+	/// @brief 秒数を Tick 数に変換するヘルパー関数
+	/// @param seconds 変換したい秒数
+	/// @return 変換後の Tick 数
+	std::uint64_t FpsTimer::SecondsToTicks(const double seconds)
+	{
+		return static_cast<std::uint64_t>(seconds * TicksPerSecond);
+	}
+
+} //namespace ncc

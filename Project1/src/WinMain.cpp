@@ -651,7 +651,7 @@ namespace {
 			}
 		}
 
-		//ビューポート・シザー短形設定
+		//ビューポート・シザー矩形設定
 		screen_viewport.TopLeftX = 0.0f;
 		screen_viewport.TopLeftY = 0.0f;
 		screen_viewport.Width = static_cast<FLOAT>(clienWidth);

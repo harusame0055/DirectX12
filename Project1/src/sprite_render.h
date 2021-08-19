@@ -44,7 +44,7 @@ namespace ncc {
 		/// @param position スプライトの描画位置
 		/// @param rotation スプライトの回転角
 		/// @param color 乗算カラー
-		/// @param cell 描画短形
+		/// @param cell 描画矩形
 		void Draw(D3D12_GPU_DESCRIPTOR_HANDLE texture,
 			const DirectX::XMUINT2& texture_size,
 			const DirectX::XMFLOAT3& position,

@@ -7,7 +7,7 @@
 
 namespace ncc {
 
-	/// @brief 描画短形, テクスチャの一部を切り出すための座標を扱う
+	/// @brief 描画矩形, テクスチャの一部を切り出すための座標を扱う
 	struct Cell {
 		std::uint32_t x;		//テクスチャ内での描画x原点 
 		std::uint32_t y;		//テクスチャ内での描画y原点
