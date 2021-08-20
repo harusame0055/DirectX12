@@ -26,14 +26,14 @@ namespace ncc {
 		/// @brief GPUの描画処理との同期
 		void WaitForPreviousFrame();
 
-		/// @brief スワップチェーンプレゼント
+		/// @brief スワップチェインプレゼント
 		void Present();
 
 		/// @brief デバイス取得
 		/// @return ID3D12Device*
 		ID3D12Device* device();
 
-		/// @brief スワップチェーン取得
+		/// @brief スワップチェイン取得
 		/// @return IDXGISwapChain4*
 		IDXGISwapChain4* swap_chain();
 
@@ -108,7 +108,7 @@ namespace ncc {
 		// アダプタを取得するためのファクトリ作成
 		ComPtr<IDXGIFactory5> dxgi_factory_;
 
-		// スワップチェーン
+		// スワップチェイン
 		ComPtr<IDXGISwapChain4> swap_chain_ = nullptr;
 
 		// バックバッファフォーマット
@@ -123,7 +123,7 @@ namespace ncc {
 		// RTデスクリプタの1個当たりのサイズ
 		UINT rtv_descriptor_size_ = 0;
 		// バックバッファとして使うレンダーターゲット配列
-		ComPtr<ID3D12CommandQueue> command_queue_ = nullptr;
+		ComPtr<ID3D12Resource> render_targets_[maxBackBufferSize]{};
 
 		// コマンドリスト，GPUに対して処理手順をリストとして持つ
 		ComPtr<ID3D12GraphicsCommandList> graphics_commnadlist_ = nullptr;
