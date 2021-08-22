@@ -591,15 +591,43 @@ namespace ncc {
 	}
 
 
+	bool DeviceContext::CreateFence(ID3D12Device* device)
+	{
+		for (int i = 0; i < backbuffer_size_; i++)
+		{
+			fence_values_[i] = 0;	// フェンス値を０クリア
+		}
 
+		// フェンス作成
+		if (FAILED(device->CreateFence(
+			fence_values_[backbuffer_index_],	 // フェンスの初期値
+			D3D12_FENCE_FLAG_NONE,
+			IID_PPV_ARGS(d3d12_fence_.ReleaseAndGetAddressOf()))))
+		{
+			return false;
+		}
+		d3d12_fence_->SetName(L"DeviceContext::d3d12_fence");
 
+		// 次回同期のためにフェンス値を設定
+		++fence_values_[backbuffer_index_];
 
+		// フェンスの状態を確認するイベントを作る
+		fence_event_.Attach(
+			// ハンドルをフェンスイベントに割り当てる
+			CreateEventEx(
+				nullptr,
+				nullptr,
+				0,
+				EVENT_MODIFY_STATE | SYNCHRONIZE));
 
-
-
-
-
+		// イベントが正しく設定できたことをチェック
+		if (!fence_event_.IsValid())
+		{
+			return false;
+		}
+		return true;
+	}
 
 #pragma endregion
 
-}
+} //	namespace ncc
