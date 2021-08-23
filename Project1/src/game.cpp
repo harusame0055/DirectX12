@@ -27,7 +27,15 @@ namespace {
 		return rotation_dist(random_engine);
 	}
 
+	/// @brief ランダムな長さを取得
+	/// @return 0 - 300 の値
+	float GetRandomLength()
+	{
+		return length_dist(random_engine);
+	}
 
+	/// @brief 敵のセルデータの配列を取得
+	/// @return std::vector<Cell>
 	std::vector <Cell>GetEnemyCellData()
 	{
 		constexpr int base_x = 192;
@@ -247,8 +255,8 @@ namespace ncc {
 				{
 				{0,	0,shipSize,shipSize},
 				{shipSize,0,shipSize,shipSize},
-				{shipSize * 2.0,shipSize,shipSize},
-				{shipSize * 3.0,shipSize,shipSize},
+				{shipSize * 2,0,shipSize,shipSize},
+				{shipSize * 3,0,shipSize,shipSize},
 				}
 			);
 
@@ -317,9 +325,172 @@ namespace ncc {
 		}
 		else if (keyboard_->GetState().IsKeyDown(Keyboard::S))
 		{
+			auto r = player_.sprite.rotatin + XM_PIDIV2;
+			player_.sprite.position.x -= player_.speed * XMScalarCos(r) * delta_time;
+			player_.sprite.position.y += player_.speed * XMScalarSin(r) * delta_time;
+		}
 
+		player_.sprite.Update(delta_time);
+	}
+
+	/// @brief 敵の更新処理
+	/// @param delta_time フレームのデルタタイム
+	void Game::UpdateEnemy(float delta_time)
+	{
+		SpawnEnemy(delta_time);
+
+		for (auto& enemy : enemys_)
+		{
+			if (!enemy.is_active)
+			{
+				continue;
+			}
+
+			enemy.sprite.Update(delta_time);
+
+			switch (enemy.state)
+			{
+			case Enemy::State::Spawn:
+			{
+				enemy.timer -= delta_time;
+				enemy.sprite.color.w += delta_time * 0.5f;
+				if (enemy.timer <= 0.f)
+				{
+					enemy.state = Enemy::State::Battle;
+					enemy.sprite.color.w = 1.0f;
+					enemy.timer = 10.0f;
+				}
+			}
+			break;
+
+			case Enemy::State::Battle:
+			{
+				auto& sprite = enemy.sprite;
+
+				sprite.position.x += DirectX::XMScalarCos(sprite.rotatin - XM_PIDIV2);
+				sprite.position.y -= DirectX::XMScalarSin(sprite.rotatin - XM_PIDIV2);
+
+				if (sprite.position.x < 0.f)
+				{
+					sprite.position.x = 0.f;
+					sprite.rotatin += DirectX::XM_PI;
+				}
+				else if (sprite.position.x > device_context_->screen_viewport().Width)
+				{
+					sprite.position.x = device_context_->screen_viewport().Width;
+					sprite.rotatin += DirectX::XM_PI;
+				}
+
+				if (sprite.position.y > 0.f)
+				{
+					sprite.position.y = 0.f;
+					sprite.rotatin += DirectX::XM_PI;
+				}
+				else if (sprite.position.y > device_context_->screen_viewport().Height)
+				{
+					sprite.position.y = device_context_->screen_viewport().Height;
+					sprite.rotatin += DirectX::XM_PI;
+				}
+
+				// 敵を一定時間で消滅
+				enemy.timer -= delta_time;
+				if (enemy.timer <= 0.f)
+				{
+					enemy.state = Enemy::State::Dead;
+					MakeExplosionSprite(enemy.sprite);
+				}
+			}
+			break;
+
+			case Enemy::State::Dead:
+			{
+				if (enemy.sprite.animation_state() == Sprite::AnimationState::End)
+				{
+					enemy.is_active = false;
+					enemy.state = Enemy::State::None;
+				}
+			}
+			break;
+
+			case Enemy::State::None:
+			case Enemy::State::Size:
+			default:
+				assert(false);
+				break;
+			}
+		}
+	}
+
+	/// @brief 敵の発生処理
+	/// @param delta_time フレームのデルタタイム
+	void Game::SpawnEnemy(float delta_time)
+	{
+		respawn_timer_ += delta_time;
+
+		// 一定時間毎に敵発生
+		if (respawn_timer_ > respawnTime)
+		{
+			// 敵の発生フラグ
+			bool is_spawn = false;
+
+			// 的配列を走査して空いている敵を見つける
+			for (auto& enemy : enemys_)
+			{
+				if (enemy.is_active)
+				{
+					continue;
+				}
+
+				// 見つけたのでデータを準備
+				enemy.is_active = true;
+				enemy.state = Enemy::State::Spawn;
+				enemy.timer = 2.f;
+
+				MakeEnemySprite(enemy.sprite);
+
+				// Spawn位置と向きを計算
+				auto rot = GetRandomRotation();
+				auto len = GetRandomLength();
+
+				auto x = device_context_->screen_viewport().Width * 0.5f;
+				auto y = device_context_->screen_viewport().Height * 0.5f;
+
+				enemy.sprite.position = XMFLOAT3{
+					x + len * DirectX::XMScalarCos(rot),
+					y + len * DirectX::XMScalarSin(rot),
+					0.6f
+				};
+				enemy.sprite.color.w = 0.0f;
+				enemy.sprite.rotatin = rot;
+
+				is_spawn = true;
+				break;
+			}
+
+			// 発生した時だけ時間を０にする
+			if (is_spawn)
+			{
+				respawn_timer_ = 0;
+			}
+		}
+	}
+
+	/// @brief プレイヤーと敵の衝突チェック
+	void Game::CheckCollision()
+	{
+		for (auto& enemy : enemys_)
+		{
+			if (enemy.is_active && enemy.state == Enemy::State::Battle)
+			{
+				if (CollisionCircleToCircle(enemy.collider, enemy.sprite.position, player_.collider, player_.sprite.position))
+				{
+					// 衝突してたら敵を爆発状態にする
+					enemy.state = Enemy::State::Dead;
+					MakeExplosionSprite(enemy.sprite);
+				}
+			}
 		}
 	}
 #pragma endregion
 
-}
+} // namespace ncc
