@@ -29,7 +29,7 @@ namespace ncc {
 
 		DirectX::XMFLOAT3 position{};		// 画面左上を原点とした描画座標
 		DirectX::XMFLOAT2 scale{ 1.0f,1.0f };	// スケール
-		float rotatin = 0.0f;				// z軸回転
+		float rotation = 0.0f;				// z軸回転
 		DirectX::XMFLOAT4 color{ 1.0f,1.0f,1.0f,1.0f };	// カラー
 
 		/// @brief 更新処理,主にアニメーション処理を行う

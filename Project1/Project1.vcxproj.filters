@@ -18,16 +18,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\WinMain.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\WICTextureLoader12.cpp">
       <Filter>external</Filter>
     </ClCompile>
     <ClCompile Include="src\keyboard.cpp">
-      <Filter>external</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mouse.cpp">
       <Filter>external</Filter>
     </ClCompile>
     <ClCompile Include="src\utility.cpp">
@@ -39,7 +36,7 @@
     <ClCompile Include="src\descriptor_heap.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\sprite_render.cpp">
+    <ClCompile Include="src\sprite_renderer.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\constant_buffer.cpp">
@@ -79,9 +76,6 @@
     <ClInclude Include="src\keyboard.h">
       <Filter>external</Filter>
     </ClInclude>
-    <ClInclude Include="src\mouse.h">
-      <Filter>external</Filter>
-    </ClInclude>
     <ClInclude Include="src\utility.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -91,7 +85,7 @@
     <ClInclude Include="src\descriptor_heap.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="src\sprite_render.h">
+    <ClInclude Include="src\sprite_renderer.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="src\constant_buffer.h">

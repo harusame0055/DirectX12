@@ -7,7 +7,7 @@
 #include"collision.h"
 #include"descriptor_heap.h"
 #include"fps_timer.h"
-#include"sprite_render.h"
+#include"sprite_renderer.h"
 #include"texture.h"
 
 namespace DirectX {

@@ -7,7 +7,7 @@ struct PSIn {
 };
 
 //コマンドで設定されたテクスチャりs－酢が渡される
-Texture2D color_tex : register(t0);
+Texture2D color_tex : register(t);
 
 //サンプラーはテクスチャを参照するためのオブジェクト
 SamplerState liner_sampler : register(s0);

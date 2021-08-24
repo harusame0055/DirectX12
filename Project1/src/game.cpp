@@ -310,22 +310,22 @@ namespace ncc {
 	{
 		if (keyboard_->GetState().IsKeyDown(Keyboard::A))
 		{
-			player_.sprite.rotatin += player_.rotation_speed * delta_time;
+			player_.sprite.rotation += player_.rotation_speed * delta_time;
 		}
 		else if (keyboard_->GetState().IsKeyDown(Keyboard::D))
 		{
-			player_.sprite.rotatin -= player_.rotation_speed * delta_time;
+			player_.sprite.rotation -= player_.rotation_speed * delta_time;
 		}
 
 		if (keyboard_->GetState().IsKeyDown(Keyboard::W))
 		{
-			auto r = player_.sprite.rotatin + XM_PIDIV2;
+			auto r = player_.sprite.rotation + XM_PIDIV2;
 			player_.sprite.position.x += player_.speed * XMScalarCos(r) * delta_time;
 			player_.sprite.position.y -= player_.speed * XMScalarSin(r) * delta_time;
 		}
 		else if (keyboard_->GetState().IsKeyDown(Keyboard::S))
 		{
-			auto r = player_.sprite.rotatin + XM_PIDIV2;
+			auto r = player_.sprite.rotation + XM_PIDIV2;
 			player_.sprite.position.x -= player_.speed * XMScalarCos(r) * delta_time;
 			player_.sprite.position.y += player_.speed * XMScalarSin(r) * delta_time;
 		}
@@ -367,29 +367,29 @@ namespace ncc {
 			{
 				auto& sprite = enemy.sprite;
 
-				sprite.position.x += DirectX::XMScalarCos(sprite.rotatin - XM_PIDIV2);
-				sprite.position.y -= DirectX::XMScalarSin(sprite.rotatin - XM_PIDIV2);
+				sprite.position.x += DirectX::XMScalarCos(sprite.rotation - XM_PIDIV2);
+				sprite.position.y -= DirectX::XMScalarSin(sprite.rotation - XM_PIDIV2);
 
 				if (sprite.position.x < 0.f)
 				{
 					sprite.position.x = 0.f;
-					sprite.rotatin += DirectX::XM_PI;
+					sprite.rotation += DirectX::XM_PI;
 				}
 				else if (sprite.position.x > device_context_->screen_viewport().Width)
 				{
 					sprite.position.x = device_context_->screen_viewport().Width;
-					sprite.rotatin += DirectX::XM_PI;
+					sprite.rotation += DirectX::XM_PI;
 				}
 
 				if (sprite.position.y > 0.f)
 				{
 					sprite.position.y = 0.f;
-					sprite.rotatin += DirectX::XM_PI;
+					sprite.rotation += DirectX::XM_PI;
 				}
 				else if (sprite.position.y > device_context_->screen_viewport().Height)
 				{
 					sprite.position.y = device_context_->screen_viewport().Height;
-					sprite.rotatin += DirectX::XM_PI;
+					sprite.rotation += DirectX::XM_PI;
 				}
 
 				// ìGÇàÍíËéûä‘Ç≈è¡ñ≈
@@ -461,7 +461,7 @@ namespace ncc {
 					0.6f
 				};
 				enemy.sprite.color.w = 0.0f;
-				enemy.sprite.rotatin = rot;
+				enemy.sprite.rotation = rot;
 
 				is_spawn = true;
 				break;

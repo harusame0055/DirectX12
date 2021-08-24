@@ -10,6 +10,12 @@ struct PSIn {
 	float2 texcoord : TEXCOORD;
 };
 
+// シーン定数: ゲームの描画オブジェクトで共通するデータ
+cbuffer SceneConstants : register(b0)
+{
+	float4x4 view_proj;
+};
+
 PSIn main(VSIn In)
 {
 	PSIn Out = (PSIn)0;

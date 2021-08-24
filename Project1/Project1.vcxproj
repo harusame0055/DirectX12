@@ -150,13 +150,12 @@
     <ClCompile Include="src\fps_timer.cpp" />
     <ClCompile Include="src\game.cpp" />
     <ClCompile Include="src\keyboard.cpp" />
-    <ClCompile Include="src\mouse.cpp" />
     <ClCompile Include="src\sprite.cpp" />
-    <ClCompile Include="src\sprite_render.cpp" />
+    <ClCompile Include="src\sprite_renderer.cpp" />
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\utility.cpp" />
     <ClCompile Include="src\WICTextureLoader12.cpp" />
-    <ClCompile Include="src\WinMain.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shader\PixelShader.hlsl">
@@ -189,9 +188,8 @@
     <ClInclude Include="src\fps_timer.h" />
     <ClInclude Include="src\game.h" />
     <ClInclude Include="src\keyboard.h" />
-    <ClInclude Include="src\mouse.h" />
     <ClInclude Include="src\sprite.h" />
-    <ClInclude Include="src\sprite_render.h" />
+    <ClInclude Include="src\sprite_renderer.h" />
     <ClInclude Include="src\texture.h" />
     <ClInclude Include="src\utility.h" />
     <ClInclude Include="src\WICTextureLoader12.h" />

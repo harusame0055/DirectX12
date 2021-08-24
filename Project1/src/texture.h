@@ -110,7 +110,7 @@ namespace ncc {
 	/// アップロードするための処理を行う
 	class TextureUploadCommandList
 	{
-	public :
+	public:
 		TextureUploadCommandList() = default;
 		~TextureUploadCommandList() = default;
 

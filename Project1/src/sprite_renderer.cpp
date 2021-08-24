@@ -1,4 +1,4 @@
-#include"sprite_render.h"
+#include"sprite_renderer.h"
 
 #include<string>
 #include"utility.h"
@@ -69,7 +69,7 @@ namespace ncc {
 
 	void SpriteRenderer::Draw(Sprite& sprite)
 	{
-		Draw(sprite.texture_view(), sprite.texture_size(), sprite.position, sprite.rotatin, sprite.color, &sprite.current_cell());
+		Draw(sprite.texture_view(), sprite.texture_size(), sprite.position, sprite.rotation, sprite.color, &sprite.current_cell());
 	}
 
 	void SpriteRenderer::Draw(D3D12_GPU_DESCRIPTOR_HANDLE texture,
