@@ -44,7 +44,7 @@ namespace ncc {
 		resource_desc_.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resource_desc_.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-		for (int i = 0; buffering_count; i++)
+		for (int i = 0; i < buffering_count; i++)
 		{
 			if (FAILED(device->CreateCommittedResource(
 				&heap_props_, D3D12_HEAP_FLAG_NONE, &resource_desc_,

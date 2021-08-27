@@ -372,8 +372,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE,
 	keyboard = std::make_unique<DirectX::Keyboard>();
 
 
-	//---------------------------------------------------------------------------
-	// なぜかここのif文が入る
 
 	if (PrepareResources() == false)
 	{

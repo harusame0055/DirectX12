@@ -239,7 +239,7 @@ namespace ncc {
 	void Game::MakePlayer()
 	{
 		{
-			int type = static_cast<int>(TextureType::SHIPANIMATED);
+			int type = static_cast<int>(TextureType::SPACESHIP);
 
 			auto desc = textures_[type].resource()->GetDesc();
 			XMUINT2 tex_size{
@@ -299,7 +299,7 @@ namespace ncc {
 
 		sprite.SetTextureData(texture_views_[type].gpu_handle(),
 			tex_size);
-		sprite.cell_data(GetEnemyCellData());
+		sprite.cell_data(GetExplosionCellData());
 		sprite.animation_state(Sprite::AnimationState::Play);
 		sprite.is_loop(false);
 	}
@@ -381,7 +381,7 @@ namespace ncc {
 					sprite.rotation += DirectX::XM_PI;
 				}
 
-				if (sprite.position.y > 0.f)
+				if (sprite.position.y < 0.f)
 				{
 					sprite.position.y = 0.f;
 					sprite.rotation += DirectX::XM_PI;

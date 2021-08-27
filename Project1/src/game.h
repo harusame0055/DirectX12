@@ -123,7 +123,7 @@ namespace ncc {
 
 		// ファイル名の配列
 		const std::vector<std::wstring>texture_path_{
-			L"asset/shipmated.png",
+			L"asset/shipanimated.png",
 			L"asset/Spaceship.png",
 			L"asset/Explosion.png",
 			L"asset/Bullet.png",

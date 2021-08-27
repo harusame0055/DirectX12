@@ -20,9 +20,9 @@ PSIn main(VSIn In)
 {
 	PSIn Out = (PSIn)0;
 
-	Out.position = float4(In.position, 1.0f);
+	Out.position = mul(float4(In.position, 1.0f), view_proj);
 	Out.color = In.color;
-	out.texcoord = In.texcoord;
+	Out.texcoord = In.texcoord;
 
 	return Out;
 }

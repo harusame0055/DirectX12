@@ -55,7 +55,13 @@ namespace ncc {
 		{
 			return false;
 		}
+		allocator_->SetName(L"TextureUploadCommandList");
 
+		if (FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+			allocator_.Get(), nullptr, IID_PPV_ARGS(&command_list_))))
+		{
+			return false;
+		}
 		command_list_->SetName(L"TextureUploadCommandList");
 
 		is_begin_recording_ = true; // コマンド記録開始状態にする
@@ -276,6 +282,9 @@ namespace ncc {
 			D3D12_RESOURCE_BARRIER barrier{};
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource = texture->resource_.Get();
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 

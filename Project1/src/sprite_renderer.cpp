@@ -104,7 +104,7 @@ namespace ncc {
 			// テクスチャ座標の構築
 			sprite->texcoord.x = cell->x / w;
 			sprite->texcoord.y = cell->y / h;
-			sprite->texcoord.x = cell->w / w + sprite->texcoord.x;
+			sprite->texcoord.z = cell->w / w + sprite->texcoord.x;
 			sprite->texcoord.w = cell->h / h + sprite->texcoord.y;
 		}
 

@@ -88,7 +88,7 @@ namespace ncc {
 		handle->cpu_handle_ = cpu_handle_start_;
 		handle->gpu_handle_ = gpu_handle_start_;
 		handle->cpu_handle_.ptr += index * increment_size_;
-		handle->gpu_handle_.ptr *= index * increment_size_;
+		handle->gpu_handle_.ptr += index * increment_size_;
 		handle->heap_ = heap_.Get();
 		handle->index_ = index;
 
